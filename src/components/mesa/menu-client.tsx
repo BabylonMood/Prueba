@@ -41,10 +41,10 @@ export function MenuClient({
   const { data: menu } = usePolling<MenuData>("/api/menu");
   const { data: session, refresh: refreshSession } = usePolling<
     TableSession | null
-  >(`/api/sessions?tableId=${tableId}`, 5000);
+  >(`/api/sessions?tableId=${tableId}`, 8000);
   const { data: ordersData, refresh: refreshOrders } = usePolling<Order[]>(
     `/api/orders?tableId=${tableId}`,
-    3000
+    5000
   );
   const orders = useMemo(() => ordersData ?? [], [ordersData]);
 
