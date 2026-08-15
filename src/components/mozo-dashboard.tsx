@@ -5,6 +5,12 @@ import { ITEM_STATUS_LABELS } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import { usePolling } from "@/lib/use-polling";
 
+interface DashboardData {
+  tables: Table[];
+  orders: Order[];
+  requests: TableRequest[];
+}
+
 const REQUEST_LABELS: Record<string, string> = {
   mozo: "Llamar al mozo",
   cubiertos: "Cubiertos",
@@ -16,17 +22,10 @@ const REQUEST_LABELS: Record<string, string> = {
 };
 
 export function MozoDashboard() {
-  const { data: tablesData, refresh: refreshTables } = usePolling<Table[]>(
-    "/api/tables",
-    3000
-  );
-  const tables = tablesData ?? [];
-  const { data: ordersData } = usePolling<Order[]>("/api/orders", 3000);
-  const orders = ordersData ?? [];
-  const { data: requestsData, refresh: refreshRequests } = usePolling<
-    TableRequest[]
-  >("/api/requests", 3000);
-  const requests = requestsData ?? [];
+  const { data, refresh } = usePolling<DashboardData>("/api/dashboard", 6000);
+  const tables = data?.tables ?? [];
+  const orders = data?.orders ?? [];
+  const requests = data?.requests ?? [];
   const pendingRequests = requests.filter((r) => r.status === "pendiente");
 
   const ordersByTable = new Map<string, Order[]>();
@@ -50,7 +49,7 @@ export function MozoDashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "atendido" }),
     });
-    refreshRequests();
+    refresh();
   }
 
   async function closeTable(tableId: string) {
@@ -59,7 +58,7 @@ export function MozoDashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "close", tableId }),
     });
-    refreshTables();
+    refresh();
   }
 
   const occupied = tables.filter((t) => t.status === "ocupada");

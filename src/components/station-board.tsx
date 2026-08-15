@@ -17,7 +17,7 @@ export function StationBoard({
   station: StationId;
   title: string;
 }) {
-  const { data } = usePolling<Order[]>(`/api/orders?station=${station}`, 2500);
+  const { data } = usePolling<Order[]>(`/api/orders?station=${station}`, 5000);
   const orders = data ?? [];
 
   async function setStatus(itemId: string, status: OrderItem["status"]) {
