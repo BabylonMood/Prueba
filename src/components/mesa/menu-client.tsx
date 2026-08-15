@@ -30,7 +30,13 @@ const EXTRAS_KINDS: RequestKind[] = [
 
 const EXTRAS_ID = "__extras__";
 
-export function MenuClient({ tableId }: { tableId: string }) {
+export function MenuClient({
+  tableId,
+  tableLabel,
+}: {
+  tableId: string;
+  tableLabel?: string;
+}) {
   const { t } = useI18n();
   const { data: menu } = usePolling<MenuData>("/api/menu");
   const { data: session, refresh: refreshSession } = usePolling<
@@ -304,7 +310,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
       <header className="flex items-start justify-between gap-4 border-b border-[#e2e8f0] pb-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#0f5132]">
-            {t("mesa")} {tableId.replace("t", "")}
+            {t("mesa")} {tableLabel?.replace("t", "") ?? tableId.replace("t", "")}
           </p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-[#0f172a]">
             {menu?.name ?? "Nuestra carta"}

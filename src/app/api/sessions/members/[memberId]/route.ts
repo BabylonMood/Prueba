@@ -9,10 +9,10 @@ export async function DELETE(
 ) {
   const { memberId } = await params;
   const tableId = request.nextUrl.searchParams.get("tableId") ?? "";
-  const result = removeMember(tableId, memberId);
+  const ok = await removeMember(tableId, memberId);
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+  if (!ok) {
+    return NextResponse.json({ error: "No se pudo borrar el miembro" }, { status: 400 });
   }
   return NextResponse.json({ ok: true });
 }

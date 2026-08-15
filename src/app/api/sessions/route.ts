@@ -8,23 +8,20 @@ export async function GET(request: NextRequest) {
   if (!tableId) {
     return NextResponse.json({ error: "tableId requerido" }, { status: 400 });
   }
-  const session = getSessionByTable(tableId);
+  const session = await getSessionByTable(tableId);
   return NextResponse.json(session ?? null);
 }
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const result = joinSession(
+  const member = await joinSession(
     typeof body.tableId === "string" ? body.tableId : "",
     typeof body.name === "string" ? body.name : ""
   );
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+  if (!member) {
+    return NextResponse.json({ error: "No se pudo unir a la mesa" }, { status: 400 });
   }
-  return NextResponse.json(
-    { session: result.session, member: result.member },
-    { status: 201 }
-  );
+  return NextResponse.json({ member }, { status: 201 });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -34,9 +31,9 @@ export async function PATCH(request: NextRequest) {
     typeof body.tableId === "string" &&
     body.tableId
   ) {
-    const result = closeSession(body.tableId);
-    if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+    const ok = await closeSession(body.tableId);
+    if (!ok) {
+      return NextResponse.json({ error: "No se pudo cerrar la sesión" }, { status: 400 });
     }
     return NextResponse.json({ ok: true });
   }

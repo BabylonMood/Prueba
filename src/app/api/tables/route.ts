@@ -4,5 +4,5 @@ import { getTables } from "@/lib/store";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json(getTables());
+  return NextResponse.json(await getTables());
 }
