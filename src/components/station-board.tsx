@@ -17,7 +17,8 @@ export function StationBoard({
   station: StationId;
   title: string;
 }) {
-  const orders = usePolling<Order[]>(`/api/orders?station=${station}`, 2500) ?? [];
+  const { data } = usePolling<Order[]>(`/api/orders?station=${station}`, 2500);
+  const orders = data ?? [];
 
   async function setStatus(itemId: string, status: OrderItem["status"]) {
     await fetch(`/api/items/${itemId}`, {

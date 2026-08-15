@@ -18,12 +18,15 @@ interface CartLine extends CreateOrderLine {
 }
 
 export function MenuClient({ tableId }: { tableId: string }) {
-  const menu = usePolling<MenuData>("/api/menu");
-  const session = usePolling<TableSession | null>(
-    `/api/sessions?tableId=${tableId}`,
-    5000
+  const { data: menu } = usePolling<MenuData>("/api/menu");
+  const { data: session, refresh: refreshSession } = usePolling<
+    TableSession | null
+  >(`/api/sessions?tableId=${tableId}`, 5000);
+  const { data: ordersData, refresh: refreshOrders } = usePolling<Order[]>(
+    `/api/orders?tableId=${tableId}`,
+    3000
   );
-  const orders = usePolling<Order[]>(`/api/orders?tableId=${tableId}`, 3000) ?? [];
+  const orders = useMemo(() => ordersData ?? [], [ordersData]);
 
   const [activeCategory, setActiveCategory] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -33,15 +36,27 @@ export function MenuClient({ tableId }: { tableId: string }) {
   const [joinName, setJoinName] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | string>("all");
+  const [splitCount, setSplitCount] = useState(1);
 
   const storageKey = `resto.member.${tableId}`;
+  const countKey = `resto.people.${tableId}`;
   const [myMemberId, setMyMemberId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(storageKey);
   });
+  const [declaredCount, setDeclaredCount] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(countKey);
+    const n = raw ? Number.parseInt(raw, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  });
 
   const me: TableMember | null =
     session?.members.find((m) => m.id === myMemberId) ?? null;
+
+  const memberCount = session?.members.length ?? 0;
+  const peopleCount = Math.max(memberCount, declaredCount ?? 0, 1);
+  const split = Math.min(splitCount, peopleCount);
 
   const categories = menu?.categories ?? [];
   const active = activeCategory || categories[0]?.id || "";
@@ -60,6 +75,16 @@ export function MenuClient({ tableId }: { tableId: string }) {
   );
 
   const cartCount = cart.reduce((n, l) => n + l.quantity, 0);
+
+  const tableTotal = useMemo(
+    () =>
+      orders.reduce(
+        (sum, o) =>
+          sum + o.items.reduce((s, i) => s + i.priceCents * i.quantity, 0),
+        0
+      ),
+    [orders]
+  );
 
   const hasShared = orders.some((o) =>
     o.items.some((i) => i.memberId === SHARED_MEMBER_ID)
@@ -110,6 +135,13 @@ export function MenuClient({ tableId }: { tableId: string }) {
     );
   }
 
+  function changePeopleCount(delta: number) {
+    const minPeople = Math.max(memberCount, 1);
+    const next = Math.max(minPeople, Math.min(peopleCount + delta, 30));
+    setDeclaredCount(next);
+    window.localStorage.setItem(countKey, String(next));
+  }
+
   async function joinTable(e: React.FormEvent) {
     e.preventDefault();
     setJoinError(null);
@@ -131,8 +163,23 @@ export function MenuClient({ tableId }: { tableId: string }) {
       setMyMemberId(data.member.id);
       window.localStorage.setItem(storageKey, data.member.id);
       setJoinName("");
+      refreshSession();
     } catch {
       setJoinError("Error de conexión");
+    }
+  }
+
+  async function deleteMember(member: TableMember) {
+    const res = await fetch(
+      `/api/sessions/members/${member.id}?tableId=${tableId}`,
+      { method: "DELETE" }
+    );
+    if (res.ok) {
+      refreshSession();
+      if (me?.id === member.id) {
+        setMyMemberId(null);
+        window.localStorage.removeItem(storageKey);
+      }
     }
   }
 
@@ -158,6 +205,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
       }
       setCart([]);
       setShowCart(false);
+      refreshOrders();
     } catch {
       setError("Error de conexión");
     } finally {
@@ -187,13 +235,20 @@ export function MenuClient({ tableId }: { tableId: string }) {
         {session?.members.map((m) => (
           <span
             key={m.id}
-            className={`rounded-full px-3 py-1 text-sm ${
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm ${
               me?.id === m.id
                 ? "bg-zinc-900 text-white"
                 : "bg-zinc-100 text-zinc-700"
             }`}
           >
             {m.name}
+            <button
+              onClick={() => deleteMember(m)}
+              aria-label={`Borrar ${m.name}`}
+              className="opacity-60 hover:opacity-100"
+            >
+              ✕
+            </button>
           </span>
         ))}
         {me ? (
@@ -217,7 +272,9 @@ export function MenuClient({ tableId }: { tableId: string }) {
             >
               Unirme
             </button>
-            {joinError && <span className="text-xs text-red-600">{joinError}</span>}
+            {joinError && (
+              <span className="text-xs text-red-600">{joinError}</span>
+            )}
           </form>
         )}
       </div>
@@ -264,7 +321,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
       {orders.length > 0 && (
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Mis pedidos</h2>
+            <h2 className="text-lg font-semibold">Pedidos de la mesa</h2>
             <div className="flex gap-1">
               <button
                 onClick={() => setFilter("all")}
@@ -303,14 +360,14 @@ export function MenuClient({ tableId }: { tableId: string }) {
             </div>
           </div>
           {visibleOrders.length === 0 ? (
-            <p className="text-sm text-zinc-500">No hay pedidos para este filtro.</p>
+            <p className="text-sm text-zinc-500">
+              No hay pedidos para este filtro.
+            </p>
           ) : (
             visibleOrders.map((o) => (
               <div key={o.id} className="rounded-xl border border-zinc-200 p-4">
                 <div className="mb-2 flex items-center justify-between text-sm text-zinc-500">
-                  <span>
-                    {o.id} · {formatTime(o.createdAt)}
-                  </span>
+                  <span>{o.id} · {formatTime(o.createdAt)}</span>
                 </div>
                 <ul className="flex flex-col gap-1">
                   {o.items.map((i) => (
@@ -345,6 +402,79 @@ export function MenuClient({ tableId }: { tableId: string }) {
               </div>
             ))
           )}
+        </section>
+      )}
+
+      {orders.length > 0 && (
+        <section className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Cuenta</h2>
+            <span className="text-sm text-zinc-500">
+              {orders.length} pedido(s)
+            </span>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-zinc-500">Personas en la mesa</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => changePeopleCount(-1)}
+                className="h-7 w-7 rounded-full border border-zinc-300"
+                aria-label="Menos personas"
+              >
+                −
+              </button>
+              <span className="w-6 text-center text-sm font-semibold">
+                {peopleCount}
+              </span>
+              <button
+                onClick={() => changePeopleCount(1)}
+                className="h-7 w-7 rounded-full border border-zinc-300"
+                aria-label="Más personas"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-sm text-zinc-500">Dividir en</span>
+            <div className="flex flex-wrap gap-1">
+              {Array.from({ length: peopleCount }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setSplitCount(n)}
+                  className={`rounded-full px-3 py-1 text-sm ${
+                    split === n
+                      ? "bg-zinc-900 text-white"
+                      : "border border-zinc-300 text-zinc-700"
+                  }`}
+                >
+                  {n === 1 ? "1 (paga 1)" : `${n} personas`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-2 flex flex-col gap-1 border-t border-zinc-100 pt-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-zinc-500">Total de la mesa</span>
+              <span className="font-semibold">{formatPrice(tableTotal)}</span>
+            </div>
+            {split > 1 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-500">
+                  Por persona (dividido en {split})
+                </span>
+                <span className="font-semibold">
+                  {formatPrice(Math.round(tableTotal / split))}
+                </span>
+              </div>
+            )}
+            <p className="text-xs text-zinc-400">
+              El pago final se procesa en el POS del local.
+            </p>
+          </div>
         </section>
       )}
 
@@ -399,7 +529,9 @@ export function MenuClient({ tableId }: { tableId: string }) {
                         </button>
                         <select
                           value={l.memberId}
-                          onChange={(e) => changeMember(l.productId, e.target.value)}
+                          onChange={(e) =>
+                            changeMember(l.productId, e.target.value)
+                          }
                           className="ml-auto rounded-lg border border-zinc-300 px-2 py-1 text-sm"
                           disabled={!me}
                         >
@@ -409,7 +541,9 @@ export function MenuClient({ tableId }: { tableId: string }) {
                       </div>
                       <input
                         value={l.notes ?? ""}
-                        onChange={(e) => changeNotes(l.productId, e.target.value)}
+                        onChange={(e) =>
+                          changeNotes(l.productId, e.target.value)
+                        }
                         placeholder="Nota (ej: sin cebolla)"
                         className="w-full rounded-lg border border-zinc-300 px-2 py-1 text-sm"
                       />
@@ -423,7 +557,8 @@ export function MenuClient({ tableId }: { tableId: string }) {
               {!me && (
                 <p className="text-xs text-zinc-500">
                   Unite como participante arriba para que tus productos se
-                  acrediten a tu nombre (sino quedan como &quot;Compartido&quot;).
+                  acrediten a tu nombre (sino quedan como
+                  &quot;Compartido&quot;).
                 </p>
               )}
               <div className="flex items-center justify-between text-sm">
