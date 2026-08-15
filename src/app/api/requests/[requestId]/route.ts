@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { markRequestAtendido } from "@/lib/store";
+import { markRequestAttended } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -8,9 +8,9 @@ export async function PATCH(
   { params }: { params: Promise<{ requestId: string }> }
 ) {
   const { requestId } = await params;
-  const result = markRequestAtendido(requestId);
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+  const ok = await markRequestAttended(requestId);
+  if (!ok) {
+    return NextResponse.json({ error: "No se pudo atender la solicitud" }, { status: 400 });
   }
   return NextResponse.json({ ok: true });
 }

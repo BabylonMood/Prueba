@@ -13,20 +13,27 @@ export async function GET(request: NextRequest) {
   const tableId = request.nextUrl.searchParams.get("tableId");
 
   if (station === "cocina" || station === "bar") {
-    return NextResponse.json(getOrdersByStation(station));
+    return NextResponse.json(await getOrdersByStation(station));
   }
   if (tableId) {
-    return NextResponse.json(getOrdersByTable(tableId));
+    return NextResponse.json(await getOrdersByTable(tableId));
   }
-  return NextResponse.json(getAllOrders());
+  return NextResponse.json(await getAllOrders());
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const result = createOrder({
-    tableId: typeof body.tableId === "string" ? body.tableId : "",
-    lines: Array.isArray(body.lines) ? body.lines : [],
-  });
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Body inválido" }, { status: 400 });
+  }
+
+  const raw = body as Record<string, unknown>;
+  const tableId = typeof raw.tableId === "string" ? raw.tableId : "";
+  const lines = Array.isArray(raw.lines) ? raw.lines : [];
+
+  const result = await createOrder({ tableId, lines });
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

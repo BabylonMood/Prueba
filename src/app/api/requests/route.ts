@@ -17,9 +17,9 @@ const KINDS: RequestKind[] = [
 export async function GET(request: NextRequest) {
   const tableId = request.nextUrl.searchParams.get("tableId");
   if (tableId) {
-    return NextResponse.json(getRequestsByTable(tableId));
+    return NextResponse.json(await getRequestsByTable(tableId));
   }
-  return NextResponse.json(getAllRequests());
+  return NextResponse.json(await getAllRequests());
 }
 
 export async function POST(request: NextRequest) {
@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
   if (!KINDS.includes(kind as RequestKind)) {
     return NextResponse.json({ error: "Tipo de solicitud inválido" }, { status: 400 });
   }
-  const result = addRequest(tableId, kind as RequestKind);
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 400 });
+  const created = await addRequest(tableId, kind as RequestKind);
+  if (!created) {
+    return NextResponse.json({ error: "No se pudo crear la solicitud" }, { status: 400 });
   }
-  return NextResponse.json(result.request, { status: 201 });
+  return NextResponse.json(created, { status: 201 });
 }
