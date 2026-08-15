@@ -4,13 +4,10 @@ export const RESTAURANT_NAME = "Casa Fuego";
 export const RESTAURANT_TAGLINE = "Comida de barrio, hecha al momento";
 
 export const dataCategories: Category[] = [
-  { id: "hamburguesas", name: "Hamburguesas" },
-  { id: "pizzas", name: "Pizzas" },
-  { id: "entradas", name: "Entradas" },
-  { id: "postres", name: "Postres" },
-  { id: "bebidas", name: "Bebidas" },
-  { id: "cafes", name: "Cafés" },
-  { id: "jugos", name: "Jugos" },
+  { id: "entradas", name: "Entradas", i18nKey: "entradas" },
+  { id: "principales", name: "Platos principales", i18nKey: "principales" },
+  { id: "postres", name: "Postres", i18nKey: "postres" },
+  { id: "bebidas", name: "Bebidas", i18nKey: "bebidas" },
 ];
 
 export const dataProducts: Product[] = [
@@ -21,7 +18,7 @@ export const dataProducts: Product[] = [
     description: "Medallón 120g, cheddar, lechuga, tomate y mayo.",
     priceCents: 9000,
     station: "cocina",
-    categoryId: "hamburguesas",
+    categoryId: "principales",
   },
   {
     id: "p_doble_bacon",
@@ -29,7 +26,7 @@ export const dataProducts: Product[] = [
     description: "Dos medallones 120g, cheddar y bacon crocante.",
     priceCents: 12000,
     station: "cocina",
-    categoryId: "hamburguesas",
+    categoryId: "principales",
   },
   {
     id: "p_barbacoa",
@@ -37,7 +34,7 @@ export const dataProducts: Product[] = [
     description: "Medallón 120g, cheddar, cebolla caramelizada y salsa barbacoa.",
     priceCents: 10500,
     station: "cocina",
-    categoryId: "hamburguesas",
+    categoryId: "principales",
   },
   {
     id: "p_pizza_margarita",
@@ -45,7 +42,7 @@ export const dataProducts: Product[] = [
     description: "Mozzarella, salsa de tomate y albahaca.",
     priceCents: 11000,
     station: "cocina",
-    categoryId: "pizzas",
+    categoryId: "principales",
   },
   {
     id: "p_pizza_pepperoni",
@@ -53,7 +50,7 @@ export const dataProducts: Product[] = [
     description: "Mozzarella, salsa de tomate y pepperoni.",
     priceCents: 12500,
     station: "cocina",
-    categoryId: "pizzas",
+    categoryId: "principales",
   },
   {
     id: "p_pizza_4quesos",
@@ -61,7 +58,7 @@ export const dataProducts: Product[] = [
     description: "Mozzarella, roquefort, parmesano y provolone.",
     priceCents: 13000,
     station: "cocina",
-    categoryId: "pizzas",
+    categoryId: "principales",
   },
   {
     id: "p_papas",
@@ -142,7 +139,7 @@ export const dataProducts: Product[] = [
     description: "Simple.",
     priceCents: 2000,
     station: "bar",
-    categoryId: "cafes",
+    categoryId: "bebidas",
   },
   {
     id: "p_cortado",
@@ -150,7 +147,7 @@ export const dataProducts: Product[] = [
     description: "Con leche.",
     priceCents: 2200,
     station: "bar",
-    categoryId: "cafes",
+    categoryId: "bebidas",
   },
   {
     id: "p_capuchino",
@@ -158,7 +155,7 @@ export const dataProducts: Product[] = [
     description: "Con canela.",
     priceCents: 2600,
     station: "bar",
-    categoryId: "cafes",
+    categoryId: "bebidas",
   },
   {
     id: "p_naranja",
@@ -166,7 +163,7 @@ export const dataProducts: Product[] = [
     description: "Exprimido, 400ml.",
     priceCents: 3000,
     station: "bar",
-    categoryId: "jugos",
+    categoryId: "bebidas",
   },
   {
     id: "p_limon",
@@ -174,7 +171,7 @@ export const dataProducts: Product[] = [
     description: "Exprimido, 400ml.",
     priceCents: 3000,
     station: "bar",
-    categoryId: "jugos",
+    categoryId: "bebidas",
   },
 ];
 
