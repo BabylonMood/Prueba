@@ -102,6 +102,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          member_id: string | null
           name: string
           notes: string
           order_id: string
@@ -114,6 +115,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          member_id?: string | null
           name: string
           notes?: string
           order_id: string
@@ -126,6 +128,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          member_id?: string | null
           name?: string
           notes?: string
           order_id?: string
@@ -136,6 +139,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["item_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "order_items_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "table_session_members"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "order_items_order_id_fkey"
             columns: ["order_id"]
@@ -542,6 +552,51 @@ export type Database = {
           },
         ]
       }
+      table_requests: {
+        Row: {
+          attended_at: string | null
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["request_kind"]
+          restaurant_id: string
+          status: Database["public"]["Enums"]["request_status"]
+          table_id: string
+        }
+        Insert: {
+          attended_at?: string | null
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["request_kind"]
+          restaurant_id: string
+          status?: Database["public"]["Enums"]["request_status"]
+          table_id: string
+        }
+        Update: {
+          attended_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["request_kind"]
+          restaurant_id?: string
+          status?: Database["public"]["Enums"]["request_status"]
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "table_requests_restaurant_id_fkey"
+            columns: ["restaurant_id"]
+            isOneToOne: false
+            referencedRelation: "restaurants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "table_requests_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       table_session_members: {
         Row: {
           created_at: string
@@ -686,6 +741,8 @@ export type Database = {
     Enums: {
       item_status: "pendiente" | "preparando" | "listo" | "entregado"
       option_group_type: "variante" | "extra"
+      request_kind: "mozo" | "cubiertos" | "servilletas" | "cuenta" | "sal" | "agua" | "otro"
+      request_status: "pendiente" | "atendido"
       session_status: "activa" | "cerrada"
       staff_role: "admin" | "mozo" | "cocina" | "bar"
       table_status: "libre" | "ocupada"
@@ -818,6 +875,8 @@ export const Constants = {
     Enums: {
       item_status: ["pendiente", "preparando", "listo", "entregado"],
       option_group_type: ["variante", "extra"],
+      request_kind: ["mozo", "cubiertos", "servilletas", "cuenta", "sal", "agua", "otro"],
+      request_status: ["pendiente", "atendido"],
       session_status: ["activa", "cerrada"],
       staff_role: ["admin", "mozo", "cocina", "bar"],
       table_status: ["libre", "ocupada"],

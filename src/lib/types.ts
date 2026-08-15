@@ -7,6 +7,7 @@ export type TableStatus = "libre" | "ocupada";
 export interface Category {
   id: string;
   name: string;
+  i18nKey?: string;
 }
 
 export interface Product {
@@ -25,6 +26,21 @@ export interface Table {
   status: TableStatus;
 }
 
+export const SHARED_MEMBER_ID = "compartido";
+
+export interface TableMember {
+  id: string;
+  name: string;
+}
+
+export interface TableSession {
+  id: string;
+  tableId: string;
+  status: "activa" | "cerrada";
+  createdAt: number;
+  members: TableMember[];
+}
+
 export interface OrderItem {
   id: string;
   productId: string;
@@ -34,26 +50,52 @@ export interface OrderItem {
   notes?: string;
   station: StationId;
   status: ItemStatus;
+  memberId: string;
+  memberName: string;
 }
 
 export interface Order {
   id: string;
   tableId: string;
   tableLabel: string;
+  sessionId: string;
   memberName: string;
   createdAt: number;
   items: OrderItem[];
 }
 
 export interface MenuData {
+  name: string;
+  tagline: string;
   categories: Category[];
   products: Product[];
+}
+
+export type RequestKind =
+  | "mozo"
+  | "cubiertos"
+  | "servilletas"
+  | "cuenta"
+  | "sal"
+  | "agua"
+  | "otro";
+
+export type RequestStatus = "pendiente" | "atendido";
+
+export interface TableRequest {
+  id: string;
+  tableId: string;
+  tableLabel: string;
+  kind: RequestKind;
+  status: RequestStatus;
+  createdAt: number;
 }
 
 export interface CreateOrderLine {
   productId: string;
   quantity: number;
   notes?: string;
+  memberId?: string;
 }
 
 export const ITEM_STATUSES: ItemStatus[] = [

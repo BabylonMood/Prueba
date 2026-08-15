@@ -31,10 +31,9 @@ export async function POST(request: NextRequest) {
 
   const raw = body as Record<string, unknown>;
   const tableId = typeof raw.tableId === "string" ? raw.tableId : "";
-  const memberName = typeof raw.memberName === "string" ? raw.memberName : "";
   const lines = Array.isArray(raw.lines) ? raw.lines : [];
 
-  const result = await createOrder({ tableId, memberName, lines });
+  const result = await createOrder({ tableId, lines });
 
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });

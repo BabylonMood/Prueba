@@ -14,7 +14,7 @@ export default async function MesaPage({
   if (!table) notFound();
 
   return (
-    <main className="flex flex-1">
+    <main className="flex flex-1 bg-[#f8fafc]">
       <MenuClient tableId={tableId} tableLabel={table.label} />
     </main>
   );

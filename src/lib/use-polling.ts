@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-export function usePolling<T>(url: string, intervalMs?: number): T | null {
+export function usePolling<T>(
+  url: string,
+  intervalMs?: number
+): { data: T | null; refresh: () => void } {
   const [reload, setReload] = useState(0);
   const [data, setData] = useState<T | null>(null);
+
+  const refresh = useCallback(() => setReload((r) => r + 1), []);
 
   useEffect(() => {
     if (intervalMs == null) return;
@@ -25,5 +30,5 @@ export function usePolling<T>(url: string, intervalMs?: number): T | null {
     };
   }, [url, reload]);
 
-  return data;
+  return { data, refresh };
 }
