@@ -1,23 +1,47 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CreateOrderLine, MenuData, Order, Product } from "@/lib/types";
-import { ITEM_STATUS_LABELS } from "@/lib/types";
+import type {
+  CreateOrderLine,
+  MenuData,
+  Order,
+  Product,
+  TableMember,
+  TableSession,
+} from "@/lib/types";
+import { ITEM_STATUS_LABELS, SHARED_MEMBER_ID } from "@/lib/types";
 import { formatPrice, formatTime } from "@/lib/format";
 import { usePolling } from "@/lib/use-polling";
 
-type CartLine = CreateOrderLine;
+interface CartLine extends CreateOrderLine {
+  memberId: string;
+}
 
 export function MenuClient({ tableId }: { tableId: string }) {
   const menu = usePolling<MenuData>("/api/menu");
+  const session = usePolling<TableSession | null>(
+    `/api/sessions?tableId=${tableId}`,
+    5000
+  );
   const orders = usePolling<Order[]>(`/api/orders?tableId=${tableId}`, 3000) ?? [];
 
   const [activeCategory, setActiveCategory] = useState("");
-  const [memberName, setMemberName] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [showCart, setShowCart] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joinName, setJoinName] = useState("");
+  const [joinError, setJoinError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | string>("all");
+
+  const storageKey = `resto.member.${tableId}`;
+  const [myMemberId, setMyMemberId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(storageKey);
+  });
+
+  const me: TableMember | null =
+    session?.members.find((m) => m.id === myMemberId) ?? null;
 
   const categories = menu?.categories ?? [];
   const active = activeCategory || categories[0]?.id || "";
@@ -37,6 +61,14 @@ export function MenuClient({ tableId }: { tableId: string }) {
 
   const cartCount = cart.reduce((n, l) => n + l.quantity, 0);
 
+  const hasShared = orders.some((o) =>
+    o.items.some((i) => i.memberId === SHARED_MEMBER_ID)
+  );
+  const visibleOrders =
+    filter === "all"
+      ? orders
+      : orders.filter((o) => o.items.some((i) => i.memberId === filter));
+
   function addToCart(product: Product) {
     setCart((prev) => {
       const existing = prev.find((l) => l.productId === product.id);
@@ -45,7 +77,14 @@ export function MenuClient({ tableId }: { tableId: string }) {
           l.productId === product.id ? { ...l, quantity: l.quantity + 1 } : l
         );
       }
-      return [...prev, { productId: product.id, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          productId: product.id,
+          quantity: 1,
+          memberId: me?.id ?? SHARED_MEMBER_ID,
+        },
+      ];
     });
   }
 
@@ -65,6 +104,43 @@ export function MenuClient({ tableId }: { tableId: string }) {
     );
   }
 
+  function changeMember(productId: string, memberId: string) {
+    setCart((prev) =>
+      prev.map((l) => (l.productId === productId ? { ...l, memberId } : l))
+    );
+  }
+
+  async function joinTable(e: React.FormEvent) {
+    e.preventDefault();
+    setJoinError(null);
+    if (!joinName.trim()) {
+      setJoinError("Ingresá tu nombre");
+      return;
+    }
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableId, name: joinName }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setJoinError(data.error ?? "No se pudo unir");
+        return;
+      }
+      setMyMemberId(data.member.id);
+      window.localStorage.setItem(storageKey, data.member.id);
+      setJoinName("");
+    } catch {
+      setJoinError("Error de conexión");
+    }
+  }
+
+  function leaveTable() {
+    setMyMemberId(null);
+    window.localStorage.removeItem(storageKey);
+  }
+
   async function submitOrder() {
     if (cart.length === 0) return;
     setSubmitting(true);
@@ -73,7 +149,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableId, memberName, lines: cart }),
+        body: JSON.stringify({ tableId, lines: cart }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -82,7 +158,6 @@ export function MenuClient({ tableId }: { tableId: string }) {
       }
       setCart([]);
       setShowCart(false);
-      setMemberName("");
     } catch {
       setError("Error de conexión");
     } finally {
@@ -106,6 +181,46 @@ export function MenuClient({ tableId }: { tableId: string }) {
           Carrito{cartCount > 0 ? ` (${cartCount})` : ""}
         </button>
       </header>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 p-3">
+        <span className="text-sm font-medium">Participantes:</span>
+        {session?.members.map((m) => (
+          <span
+            key={m.id}
+            className={`rounded-full px-3 py-1 text-sm ${
+              me?.id === m.id
+                ? "bg-zinc-900 text-white"
+                : "bg-zinc-100 text-zinc-700"
+            }`}
+          >
+            {m.name}
+          </span>
+        ))}
+        {me ? (
+          <span className="flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
+            Sos {me.name}
+            <button onClick={leaveTable} aria-label="Salir">
+              ✕
+            </button>
+          </span>
+        ) : (
+          <form onSubmit={joinTable} className="flex items-center gap-2">
+            <input
+              value={joinName}
+              onChange={(e) => setJoinName(e.target.value)}
+              placeholder="Tu nombre"
+              className="w-32 rounded-full border border-zinc-300 px-3 py-1 text-sm"
+            />
+            <button
+              type="submit"
+              className="rounded-full bg-zinc-900 px-3 py-1 text-sm text-white"
+            >
+              Unirme
+            </button>
+            {joinError && <span className="text-xs text-red-600">{joinError}</span>}
+          </form>
+        )}
+      </div>
 
       <nav className="flex gap-2 overflow-x-auto pb-1">
         {categories.map((c) => (
@@ -148,44 +263,88 @@ export function MenuClient({ tableId }: { tableId: string }) {
 
       {orders.length > 0 && (
         <section className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold">Mis pedidos</h2>
-          {orders.map((o) => (
-            <div key={o.id} className="rounded-xl border border-zinc-200 p-4">
-              <div className="mb-2 flex items-center justify-between text-sm text-zinc-500">
-                <span>
-                  {o.id} · {o.memberName} · {formatTime(o.createdAt)}
-                </span>
-              </div>
-              <ul className="flex flex-col gap-1">
-                {o.items.map((i) => (
-                  <li
-                    key={i.id}
-                    className="flex items-center justify-between gap-2 text-sm"
-                  >
-                    <span>
-                      {i.quantity} × {i.name}
-                      {i.notes ? (
-                        <span className="text-zinc-500"> — {i.notes}</span>
-                      ) : null}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${
-                        i.status === "entregado"
-                          ? "bg-green-100 text-green-700"
-                          : i.status === "listo"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : i.status === "preparando"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-zinc-100 text-zinc-600"
-                      }`}
-                    >
-                      {ITEM_STATUS_LABELS[i.status]}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Mis pedidos</h2>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setFilter("all")}
+                className={`rounded-full px-3 py-1 text-sm ${
+                  filter === "all"
+                    ? "bg-zinc-900 text-white"
+                    : "border border-zinc-300 text-zinc-700"
+                }`}
+              >
+                Todos
+              </button>
+              {me && (
+                <button
+                  onClick={() => setFilter(me.id)}
+                  className={`rounded-full px-3 py-1 text-sm ${
+                    filter === me.id
+                      ? "bg-zinc-900 text-white"
+                      : "border border-zinc-300 text-zinc-700"
+                  }`}
+                >
+                  {me.name}
+                </button>
+              )}
+              {hasShared && (
+                <button
+                  onClick={() => setFilter(SHARED_MEMBER_ID)}
+                  className={`rounded-full px-3 py-1 text-sm ${
+                    filter === SHARED_MEMBER_ID
+                      ? "bg-zinc-900 text-white"
+                      : "border border-zinc-300 text-zinc-700"
+                  }`}
+                >
+                  Compartido
+                </button>
+              )}
             </div>
-          ))}
+          </div>
+          {visibleOrders.length === 0 ? (
+            <p className="text-sm text-zinc-500">No hay pedidos para este filtro.</p>
+          ) : (
+            visibleOrders.map((o) => (
+              <div key={o.id} className="rounded-xl border border-zinc-200 p-4">
+                <div className="mb-2 flex items-center justify-between text-sm text-zinc-500">
+                  <span>
+                    {o.id} · {formatTime(o.createdAt)}
+                  </span>
+                </div>
+                <ul className="flex flex-col gap-1">
+                  {o.items.map((i) => (
+                    <li
+                      key={i.id}
+                      className="flex items-center justify-between gap-2 text-sm"
+                    >
+                      <span>
+                        {i.quantity} × {i.name}
+                        <span className="text-zinc-500">
+                          {" "}
+                          · {i.memberName}
+                          {i.notes ? ` — ${i.notes}` : ""}
+                        </span>
+                      </span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs ${
+                          i.status === "entregado"
+                            ? "bg-green-100 text-green-700"
+                            : i.status === "listo"
+                              ? "bg-emerald-100 text-emerald-700"
+                              : i.status === "preparando"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-zinc-100 text-zinc-600"
+                        }`}
+                      >
+                        {ITEM_STATUS_LABELS[i.status]}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
         </section>
       )}
 
@@ -238,15 +397,22 @@ export function MenuClient({ tableId }: { tableId: string }) {
                         >
                           +
                         </button>
-                        <input
-                          value={l.notes ?? ""}
-                          onChange={(e) =>
-                            changeNotes(l.productId, e.target.value)
-                          }
-                          placeholder="Nota (ej: sin cebolla)"
-                          className="ml-auto w-44 rounded-lg border border-zinc-300 px-2 py-1 text-sm"
-                        />
+                        <select
+                          value={l.memberId}
+                          onChange={(e) => changeMember(l.productId, e.target.value)}
+                          className="ml-auto rounded-lg border border-zinc-300 px-2 py-1 text-sm"
+                          disabled={!me}
+                        >
+                          {me && <option value={me.id}>Yo ({me.name})</option>}
+                          <option value={SHARED_MEMBER_ID}>Compartido</option>
+                        </select>
                       </div>
+                      <input
+                        value={l.notes ?? ""}
+                        onChange={(e) => changeNotes(l.productId, e.target.value)}
+                        placeholder="Nota (ej: sin cebolla)"
+                        className="w-full rounded-lg border border-zinc-300 px-2 py-1 text-sm"
+                      />
                     </li>
                   );
                 })}
@@ -254,15 +420,12 @@ export function MenuClient({ tableId }: { tableId: string }) {
             )}
 
             <div className="mt-auto flex flex-col gap-2">
-              <label className="text-sm font-medium">
-                ¿Quién pide?
-                <input
-                  value={memberName}
-                  onChange={(e) => setMemberName(e.target.value)}
-                  placeholder="Tu nombre (opcional)"
-                  className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-                />
-              </label>
+              {!me && (
+                <p className="text-xs text-zinc-500">
+                  Unite como participante arriba para que tus productos se
+                  acrediten a tu nombre (sino quedan como &quot;Compartido&quot;).
+                </p>
+              )}
               <div className="flex items-center justify-between text-sm">
                 <span className="text-zinc-500">Total</span>
                 <span className="font-semibold">{formatPrice(cartTotal)}</span>

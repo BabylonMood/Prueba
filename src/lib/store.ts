@@ -8,18 +8,26 @@ import type {
   Product,
   StationId,
   Table,
+  TableMember,
+  TableSession,
 } from "./types";
+import { SHARED_MEMBER_ID } from "./types";
 
 const categories = dataCategories;
 const products: Product[] = dataProducts;
 const tables: Table[] = dataTables;
 const orders: Order[] = [];
+const sessions: TableSession[] = [];
 
 let orderCounter = 0;
 let itemCounter = 0;
+let sessionCounter = 0;
+let memberCounter = 0;
 
 const nextOrderId = (): string => `#${++orderCounter}`;
 const nextItemId = (): string => `item_${++itemCounter}`;
+const nextSessionId = (): string => `s${++sessionCounter}`;
+const nextMemberId = (): string => `m${++memberCounter}`;
 
 export function getMenu(): MenuData {
   return { categories, products };
@@ -50,9 +58,49 @@ export function getOrdersByStation(station: StationId): Order[] {
     }));
 }
 
+export function getSessionByTable(tableId: string): TableSession | undefined {
+  return sessions.find((s) => s.tableId === tableId);
+}
+
+export function getOrCreateSession(tableId: string): TableSession {
+  const existing = getSessionByTable(tableId);
+  if (existing) return existing;
+  const session: TableSession = {
+    id: nextSessionId(),
+    tableId,
+    status: "activa",
+    createdAt: Date.now(),
+    members: [],
+  };
+  sessions.push(session);
+  return session;
+}
+
+export function joinSession(
+  tableId: string,
+  name: string
+): {
+  ok: boolean;
+  session?: TableSession;
+  member?: TableMember;
+  error?: string;
+} {
+  const session = getOrCreateSession(tableId);
+  const trimmed = name.trim();
+  if (!trimmed) return { ok: false, error: "Ingresá tu nombre" };
+
+  const existing = session.members.find(
+    (m) => m.name.toLowerCase() === trimmed.toLowerCase()
+  );
+  if (existing) return { ok: true, session, member: existing };
+
+  const member: TableMember = { id: nextMemberId(), name: trimmed };
+  session.members.push(member);
+  return { ok: true, session, member };
+}
+
 export function createOrder(input: {
   tableId: string;
-  memberName: string;
   lines: CreateOrderLine[];
 }): { ok: boolean; order?: Order; error?: string } {
   const table = getTable(input.tableId);
@@ -61,7 +109,10 @@ export function createOrder(input: {
     return { ok: false, error: "El pedido está vacío" };
   }
 
+  const session = getOrCreateSession(input.tableId);
   const items: OrderItem[] = [];
+  const memberNames = new Set<string>();
+
   for (const line of input.lines) {
     const product = products.find((p) => p.id === line.productId);
     if (!product) {
@@ -71,15 +122,30 @@ export function createOrder(input: {
     if (!Number.isInteger(quantity) || quantity < 1) {
       return { ok: false, error: "Cantidad inválida" };
     }
+
+    let memberId = line.memberId;
+    let memberName = "Compartido";
+    if (memberId && memberId !== SHARED_MEMBER_ID) {
+      const member = session.members.find((m) => m.id === memberId);
+      if (!member) return { ok: false, error: "Participante no encontrado" };
+      memberName = member.name;
+    } else {
+      memberId = SHARED_MEMBER_ID;
+    }
+    memberNames.add(memberName);
+
     items.push({
       id: nextItemId(),
       productId: product.id,
       name: product.name,
       priceCents: product.priceCents,
       quantity,
-      notes: typeof line.notes === "string" ? line.notes.trim() || undefined : undefined,
+      notes:
+        typeof line.notes === "string" ? line.notes.trim() || undefined : undefined,
       station: product.station,
       status: "pendiente",
+      memberId,
+      memberName,
     });
   }
 
@@ -87,7 +153,8 @@ export function createOrder(input: {
     id: nextOrderId(),
     tableId: table.id,
     tableLabel: table.label,
-    memberName: input.memberName.trim() || "Anónimo",
+    sessionId: session.id,
+    memberName: memberNames.size === 1 ? [...memberNames][0] : "Compartido",
     createdAt: Date.now(),
     items,
   };
