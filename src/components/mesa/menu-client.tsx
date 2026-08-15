@@ -8,7 +8,13 @@ import { usePolling } from "@/lib/use-polling";
 
 type CartLine = CreateOrderLine;
 
-export function MenuClient({ tableId }: { tableId: string }) {
+export function MenuClient({
+  tableId,
+  tableLabel,
+}: {
+  tableId: string;
+  tableLabel?: string;
+}) {
   const menu = usePolling<MenuData>("/api/menu");
   const orders = usePolling<Order[]>(`/api/orders?tableId=${tableId}`, 3000) ?? [];
 
@@ -96,7 +102,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
         <div>
           <h1 className="text-2xl font-bold">Nuestra carta</h1>
           <p className="text-sm text-zinc-500">
-            Mesa {tableId.replace("t", "")} · Pedí y seguí tu pedido en vivo
+            {tableLabel ?? `Mesa ${tableId}`} · Pedí y seguí tu pedido en vivo
           </p>
         </div>
         <button
