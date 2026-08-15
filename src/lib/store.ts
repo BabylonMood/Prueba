@@ -18,6 +18,9 @@ import { getServiceClient } from "./supabase/server";
 
 const RESTAURANT_ID = "11111111-1111-4111-8111-111111111111";
 
+const MENU_CACHE_TTL_MS = 60_000;
+let menuCache: { data: MenuData; expiresAt: number } | null = null;
+
 const CATEGORY_I18N: Record<string, string> = {
   "44444444-4444-4444-8444-000000000001": "principales",
   "44444444-4444-4444-8444-000000000003": "entradas",
@@ -154,6 +157,10 @@ function toRequest(row: RequestRow): TableRequest {
 }
 
 export async function getMenu(): Promise<MenuData> {
+  if (menuCache && menuCache.expiresAt > Date.now()) {
+    return menuCache.data;
+  }
+
   const db = getServiceClient();
   const [restaurantRes, categoriesRes, productsRes] = await Promise.all([
     db
@@ -174,7 +181,7 @@ export async function getMenu(): Promise<MenuData> {
     | null
     | undefined;
 
-  return {
+  const menu: MenuData = {
     name: restaurantRes.data?.name ?? "Mi Restaurante",
     tagline: settings?.tagline ?? "",
     categories: (categoriesRes.data ?? []).map((c) => ({
@@ -184,6 +191,9 @@ export async function getMenu(): Promise<MenuData> {
     })),
     products: (productsRes.data ?? []).map(toProduct),
   };
+
+  menuCache = { data: menu, expiresAt: Date.now() + MENU_CACHE_TTL_MS };
+  return menu;
 }
 
 export async function getTables(): Promise<Table[]> {
@@ -383,10 +393,32 @@ export async function getOrdersByTable(tableId: string): Promise<Order[]> {
 }
 
 export async function getOrdersByStation(station: StationId): Promise<Order[]> {
-  const orders = await getAllOrders();
-  return orders
-    .filter((o) => o.items.some((i) => i.station === station))
-    .map((o) => ({ ...o, items: o.items.filter((i) => i.station === station) }));
+  const db = getServiceClient();
+  const { data: stationRow } = await db
+    .from("stations")
+    .select("id")
+    .eq("slug", station)
+    .maybeSingle();
+  if (!stationRow) return [];
+
+  const { data: itemRows } = await db
+    .from("order_items")
+    .select("order_id")
+    .eq("station_id", stationRow.id);
+  const orderIds = Array.from(new Set((itemRows ?? []).map((r) => r.order_id)));
+  if (orderIds.length === 0) return [];
+
+  const { data } = await db
+    .from("orders")
+    .select(ORDER_SELECT)
+    .in("id", orderIds)
+    .order("created_at", { ascending: true });
+  return (data ?? [])
+    .map(toOrder)
+    .map((o) => ({
+      ...o,
+      items: o.items.filter((i) => i.station === station),
+    }));
 }
 
 export async function createOrder(input: {
