@@ -17,7 +17,8 @@ export function StationBoard({
   station: StationId;
   title: string;
 }) {
-  const orders = usePolling<Order[]>(`/api/orders?station=${station}`, 2500) ?? [];
+  const { data } = usePolling<Order[]>(`/api/orders?station=${station}`, 2500);
+  const orders = data ?? [];
 
   async function setStatus(itemId: string, status: OrderItem["status"]) {
     await fetch(`/api/items/${itemId}`, {
@@ -91,7 +92,7 @@ export function StationBoard({
                     <p className="text-xs text-zinc-500">“{item.notes}”</p>
                   ) : null}
                   <p className="text-xs text-zinc-400">
-                    {order.id} · {order.memberName}
+                    {order.id} · {item.memberName}
                   </p>
                   {col.key === "pendiente" && (
                     <button

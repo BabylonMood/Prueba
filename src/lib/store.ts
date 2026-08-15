@@ -5,12 +5,25 @@ import type {
   Order,
   OrderItem,
   Product,
+  RequestKind,
+  RequestStatus,
   StationId,
   Table,
+  TableMember,
+  TableRequest,
+  TableSession,
 } from "./types";
+import { SHARED_MEMBER_ID } from "./types";
 import { getServiceClient } from "./supabase/server";
 
 const RESTAURANT_ID = "11111111-1111-4111-8111-111111111111";
+
+const CATEGORY_I18N: Record<string, string> = {
+  "44444444-4444-4444-8444-000000000001": "principales",
+  "44444444-4444-4444-8444-000000000003": "entradas",
+  "44444444-4444-4444-8444-000000000004": "postres",
+  "44444444-4444-4444-8444-000000000005": "bebidas",
+};
 
 interface ItemRow {
   id: string;
@@ -21,12 +34,14 @@ interface ItemRow {
   notes: string;
   status: ItemStatus;
   station: { slug: string } | null;
+  member: { id: string; name: string } | null;
 }
 
 interface OrderRow {
   id: string;
   created_at: string;
   table_id: string;
+  session_id: string;
   member_id: string | null;
   notes: string;
   table: { label: string } | null;
@@ -34,11 +49,26 @@ interface OrderRow {
   items: ItemRow[] | null;
 }
 
+interface RequestRow {
+  id: string;
+  kind: RequestKind;
+  status: RequestStatus;
+  created_at: string;
+  attended_at: string | null;
+  table_id: string;
+  table: { label: string } | null;
+}
+
 const ORDER_SELECT = `
-  id, created_at, table_id, member_id, notes,
+  id, created_at, table_id, session_id, member_id, notes,
   table:tables(label),
   member:table_session_members(name),
-  items:order_items(id, product_id, name, price_cents, quantity, notes, status, station:stations(slug))
+  items:order_items(id, product_id, name, price_cents, quantity, notes, status, station:stations(slug), member:table_session_members(id, name))
+`;
+
+const REQUEST_SELECT = `
+  id, kind, status, created_at, attended_at, table_id,
+  table:tables(label)
 `;
 
 function shortOrderId(uuid: string): string {
@@ -87,24 +117,51 @@ function toItem(row: ItemRow): OrderItem {
     notes: row.notes || undefined,
     station: (row.station?.slug ?? "cocina") as StationId,
     status: row.status,
+    memberId: row.member?.id ?? SHARED_MEMBER_ID,
+    memberName: row.member?.name ?? "Compartido",
   };
 }
 
 function toOrder(row: OrderRow): Order {
+  const memberNames = Array.from(
+    new Set(
+      (row.items ?? [])
+        .map((i) => i.member?.name)
+        .filter((n): n is string => Boolean(n) && n !== "Compartido")
+    )
+  );
   return {
     id: shortOrderId(row.id),
     tableId: row.table_id,
     tableLabel: row.table?.label ?? "",
-    memberName: row.member?.name ?? "Anónimo",
+    sessionId: row.session_id,
+    memberName:
+      row.member?.name ?? (memberNames.length === 1 ? memberNames[0] : "Compartido"),
     createdAt: new Date(row.created_at).getTime(),
     items: (row.items ?? []).map(toItem),
   };
 }
 
+function toRequest(row: RequestRow): TableRequest {
+  return {
+    id: row.id,
+    tableId: row.table_id,
+    tableLabel: row.table?.label ?? "",
+    kind: row.kind,
+    status: row.status,
+    createdAt: new Date(row.created_at).getTime(),
+  };
+}
+
 export async function getMenu(): Promise<MenuData> {
   const db = getServiceClient();
-  const [categoriesRes, productsRes] = await Promise.all([
-    db.from("categories").select("*").order("sort_order"),
+  const [restaurantRes, categoriesRes, productsRes] = await Promise.all([
+    db
+      .from("restaurants")
+      .select("name, settings")
+      .eq("id", RESTAURANT_ID)
+      .maybeSingle(),
+    db.from("categories").select("id, name").order("sort_order"),
     db
       .from("products")
       .select("id, name, description, price_cents, category_id, station:stations(slug)")
@@ -112,8 +169,19 @@ export async function getMenu(): Promise<MenuData> {
       .order("sort_order"),
   ]);
 
+  const settings = restaurantRes.data?.settings as
+    | { tagline?: string }
+    | null
+    | undefined;
+
   return {
-    categories: (categoriesRes.data ?? []).map((c) => ({ id: c.id, name: c.name })),
+    name: restaurantRes.data?.name ?? "Mi Restaurante",
+    tagline: settings?.tagline ?? "",
+    categories: (categoriesRes.data ?? []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      i18nKey: CATEGORY_I18N[c.id] ?? "",
+    })),
     products: (productsRes.data ?? []).map(toProduct),
   };
 }
@@ -166,6 +234,135 @@ async function openSession(tableId: string): Promise<{ id: string } | undefined>
   return data;
 }
 
+async function getOrCreateSession(tableId: string): Promise<{ id: string }> {
+  const existing = await getActiveSession(tableId);
+  if (existing) return existing;
+  const created = await openSession(tableId);
+  if (created) return created;
+  throw new Error("No se pudo abrir la sesión de la mesa");
+}
+
+export async function getSessionByTable(
+  tableId: string
+): Promise<TableSession | undefined> {
+  const db = getServiceClient();
+  const { data } = await db
+    .from("table_sessions")
+    .select("id, opened_at, status, members:table_session_members(id, name)")
+    .eq("table_id", tableId)
+    .eq("status", "activa")
+    .order("opened_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!data) return undefined;
+  return {
+    id: data.id,
+    tableId,
+    status: data.status,
+    createdAt: new Date(data.opened_at).getTime(),
+    members: (data.members ?? []).map((m) => ({ id: m.id, name: m.name })),
+  };
+}
+
+export async function joinSession(
+  tableId: string,
+  name: string
+): Promise<TableMember | undefined> {
+  const trimmed = name.trim();
+  if (!trimmed) return undefined;
+
+  const db = getServiceClient();
+  const session = await getOrCreateSession(tableId);
+
+  const { data: existing } = await db
+    .from("table_session_members")
+    .select("id, name")
+    .eq("session_id", session.id)
+    .ilike("name", trimmed)
+    .maybeSingle();
+  if (existing) return { id: existing.id, name: existing.name };
+
+  const { data } = await db
+    .from("table_session_members")
+    .insert({ session_id: session.id, name: trimmed })
+    .select("id, name")
+    .single();
+  return data ? { id: data.id, name: data.name } : undefined;
+}
+
+export async function removeMember(
+  tableId: string,
+  memberId: string
+): Promise<boolean> {
+  const db = getServiceClient();
+  const session = await getActiveSession(tableId);
+  if (!session) return false;
+
+  const { error } = await db
+    .from("table_session_members")
+    .delete()
+    .eq("id", memberId)
+    .eq("session_id", session.id);
+  return !error;
+}
+
+export async function closeSession(tableId: string): Promise<boolean> {
+  const db = getServiceClient();
+  const { error } = await db
+    .from("table_sessions")
+    .update({ status: "cerrada", closed_at: new Date().toISOString() })
+    .eq("table_id", tableId)
+    .eq("status", "activa");
+  if (error) return false;
+
+  await db.from("tables").update({ status: "libre" }).eq("id", tableId);
+  return true;
+}
+
+export async function addRequest(
+  tableId: string,
+  kind: RequestKind
+): Promise<TableRequest | undefined> {
+  const db = getServiceClient();
+  const { data } = await db
+    .from("table_requests")
+    .insert({ restaurant_id: RESTAURANT_ID, table_id: tableId, kind })
+    .select(REQUEST_SELECT)
+    .single();
+  return data ? toRequest(data) : undefined;
+}
+
+export async function getAllRequests(): Promise<TableRequest[]> {
+  const db = getServiceClient();
+  const { data } = await db
+    .from("table_requests")
+    .select(REQUEST_SELECT)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map(toRequest);
+}
+
+export async function getRequestsByTable(
+  tableId: string
+): Promise<TableRequest[]> {
+  const db = getServiceClient();
+  const { data } = await db
+    .from("table_requests")
+    .select(REQUEST_SELECT)
+    .eq("table_id", tableId)
+    .order("created_at", { ascending: true });
+  return (data ?? []).map(toRequest);
+}
+
+export async function markRequestAttended(requestId: string): Promise<boolean> {
+  const db = getServiceClient();
+  const { error } = await db
+    .from("table_requests")
+    .update({ status: "atendido", attended_at: new Date().toISOString() })
+    .eq("id", requestId);
+  return !error;
+}
+
 export async function getAllOrders(): Promise<Order[]> {
   const db = getServiceClient();
   const { data } = await db
@@ -194,7 +391,6 @@ export async function getOrdersByStation(station: StationId): Promise<Order[]> {
 
 export async function createOrder(input: {
   tableId: string;
-  memberName: string;
   lines: CreateOrderLine[];
 }): Promise<{ ok: boolean; order?: Order; error?: string }> {
   const table = await getTable(input.tableId);
@@ -219,6 +415,7 @@ export async function createOrder(input: {
     price_cents: number;
     quantity: number;
     notes: string;
+    member_id: string | null;
   }> = [];
   for (const line of input.lines) {
     const product = productsById.get(line.productId);
@@ -236,22 +433,16 @@ export async function createOrder(input: {
       price_cents: product.price_cents,
       quantity,
       notes: typeof line.notes === "string" ? line.notes.trim() : "",
+      member_id:
+        line.memberId && line.memberId !== SHARED_MEMBER_ID
+          ? line.memberId
+          : null,
     });
   }
 
-  const session = (await getActiveSession(input.tableId)) ?? (await openSession(input.tableId));
+  const session =
+    (await getActiveSession(input.tableId)) ?? (await openSession(input.tableId));
   if (!session) return { ok: false, error: "No se pudo abrir la sesión de la mesa" };
-
-  let member: { id: string } | undefined;
-  const memberName = input.memberName.trim();
-  if (memberName) {
-    const { data } = await db
-      .from("table_session_members")
-      .insert({ session_id: session.id, name: memberName })
-      .select("id")
-      .single();
-    member = data ?? undefined;
-  }
 
   const { data: orderRow, error } = await db
     .from("orders")
@@ -259,7 +450,7 @@ export async function createOrder(input: {
       restaurant_id: RESTAURANT_ID,
       session_id: session.id,
       table_id: input.tableId,
-      member_id: member?.id ?? null,
+      member_id: null,
     })
     .select("id")
     .single();
@@ -294,7 +485,9 @@ export async function updateItemStatus(
 
   const { data } = await db
     .from("order_items")
-    .select("id, product_id, name, price_cents, quantity, notes, status, station:stations(slug)")
+    .select(
+      "id, product_id, name, price_cents, quantity, notes, status, station:stations(slug), member:table_session_members(id, name)"
+    )
     .eq("id", itemId)
     .maybeSingle();
   return { ok: true, item: data ? toItem(data) : undefined };

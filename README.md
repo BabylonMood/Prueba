@@ -42,7 +42,8 @@ Abrir http://localhost:3000
 ## Flujo para probar (2 navegadores o 2 pestañas)
 
 1. `/` → entrá a una mesa (simula el QR).
-2. En la mesa: elegí productos y enviá el pedido (poné tu nombre opcional).
+2. En la mesa: sumate como participante (el nombre es opcional), elegí productos
+   y enviá el pedido tras el paso de **Revisar**.
 3. Abrí `/cocina` y `/bar`: cada estación ve solo sus ítems, los comienza y los
    marca listos.
 4. Abrí `/mozo`: la mesa queda ocupada y los productos listos aparecen con el
@@ -50,6 +51,14 @@ Abrir http://localhost:3000
 
 La actualización en vivo es por **polling** (2.5–3s). El siguiente paso es
 reemplazarlo por Supabase Realtime.
+
+## Participantes y cuenta
+
+Cada ítem queda atribuido al participante que lo pidió (o **Compartido**). Los
+filtros de la carta se muestran solo cuando corresponden (chips por persona si
+hay varias, "Compartido" solo si existen ítems compartidos). La sección **Cuenta**
+muestra el total y la división en partes iguales (de 1 a la cantidad de personas
+de la mesa); el pago final se procesa en el POS.
 
 ## Rutas
 
@@ -67,7 +76,10 @@ reemplazarlo por Supabase Realtime.
 | ------ | ----------------------- | ---------------------------------------- |
 | GET    | `/api/menu`             | Categorías + productos                   |
 | GET    | `/api/tables`           | Mesas con estado                         |
-| POST   | `/api/orders`           | Crea pedido (`tableId`, `memberName`, `lines`) |
+| GET    | `/api/sessions?tableId=` | Sesión de la mesa                       |
+| POST   | `/api/sessions`         | Une participante (`tableId`, `name?`)    |
+| DELETE | `/api/sessions/members/[memberId]?tableId=` | Quita un participante |
+| POST   | `/api/orders`           | Crea pedido (`tableId`, `memberName?`, `lines`) |
 | GET    | `/api/orders`           | Todos los pedidos (filtros `?station=` o `?tableId=`) |
 | PATCH  | `/api/items/[itemId]`   | Cambia estado del ítem (`status`)        |
 
@@ -92,11 +104,11 @@ reemplazarlo por Supabase Realtime.
 supabase/
 └── migrations/            # schema + seed + fixes (versionados)
 src/
-├── app/                   # rutas y API
-│   ├── api/menu|tables|orders|items
-│   ├── mesa/[tableId]     # vista cliente
-│   ├── cocina | bar       # estaciones
-│   └── mozo               # salón
+├── app/                    # rutas y API
+│   ├── api/menu|tables|orders|sessions|items
+│   ├── mesa/[tableId]      # vista cliente
+│   ├── cocina | bar        # estaciones
+│   └── mozo                # salón
 ├── components/
 │   ├── mesa/menu-client   # carta + carrito (cliente)
 │   ├── station-board      # panel cocina/bar
