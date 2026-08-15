@@ -363,23 +363,42 @@ export async function markRequestAttended(requestId: string): Promise<boolean> {
   return !error;
 }
 
+async function getActiveSessionIds(): Promise<string[]> {
+  const db = getServiceClient();
+  const { data } = await db
+    .from("table_sessions")
+    .select("id")
+    .eq("status", "activa");
+  return (data ?? []).map((s) => s.id);
+}
+
 export async function getAllOrders(): Promise<Order[]> {
   const db = getServiceClient();
+  const sessionIds = await getActiveSessionIds();
+  if (sessionIds.length === 0) return [];
   const { data } = await db
     .from("orders")
     .select(ORDER_SELECT)
+    .in("session_id", sessionIds)
     .order("created_at", { ascending: true });
-  return (data ?? []).map(toOrder);
+  return (data ?? [])
+    .map(toOrder)
+    .filter((o) => o.items.length > 0);
 }
 
 export async function getOrdersByTable(tableId: string): Promise<Order[]> {
   const db = getServiceClient();
+  const sessionIds = await getActiveSessionIds();
+  if (sessionIds.length === 0) return [];
   const { data } = await db
     .from("orders")
     .select(ORDER_SELECT)
     .eq("table_id", tableId)
+    .in("session_id", sessionIds)
     .order("created_at", { ascending: true });
-  return (data ?? []).map(toOrder);
+  return (data ?? [])
+    .map(toOrder)
+    .filter((o) => o.items.length > 0);
 }
 
 export async function getOrdersByStation(station: StationId): Promise<Order[]> {
@@ -459,7 +478,12 @@ export async function createOrder(input: {
   const { error: itemsError } = await db.from("order_items").insert(
     items.map((i) => ({ ...i, order_id: orderRow.id, status: "pendiente" }))
   );
-  if (itemsError) return { ok: false, error: "No se pudieron guardar los ítems" };
+  if (itemsError) {
+    return {
+      ok: false,
+      error: `No se pudieron guardar los ítems (${itemsError.message})`,
+    };
+  }
 
   const { data: created } = await db
     .from("orders")

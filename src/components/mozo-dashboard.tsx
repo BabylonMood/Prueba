@@ -1,6 +1,6 @@
 "use client";
 
-import type { Order, Table, TableRequest } from "@/lib/types";
+import type { Order, OrderItem, Table, TableRequest } from "@/lib/types";
 import { ITEM_STATUS_LABELS } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import { usePolling } from "@/lib/use-polling";
@@ -14,6 +14,18 @@ const REQUEST_LABELS: Record<string, string> = {
   agua: "Agua",
   otro: "Otro",
 };
+
+function StationBadge({ station }: { station: OrderItem["station"] }) {
+  return station === "bar" ? (
+    <span className="rounded bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-700">
+      Bar
+    </span>
+  ) : (
+    <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">
+      Cocina
+    </span>
+  );
+}
 
 export function MozoDashboard() {
   const { data: tablesData, refresh: refreshTables } = usePolling<Table[]>(
@@ -163,25 +175,28 @@ export function MozoDashboard() {
                 {ready.length > 0 && (
                   <div className="rounded-lg border border-green-200 bg-green-50 p-2">
                     <p className="mb-1 text-xs font-semibold text-green-700">
-                      Para entregar
+                      Listas para entregar
                     </p>
                     {ready.map(({ item, orderLabel }) => (
                       <div
                         key={item.id}
                         className="flex items-center justify-between gap-2 py-1 text-sm"
                       >
-                        <span>
-                          {item.quantity} × {item.name}
-                          <span className="text-xs text-zinc-500">
-                            {" "}
-                            · {item.memberName} · {orderLabel}
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <StationBadge station={item.station} />
+                          <span>
+                            {item.quantity} × {item.name}
+                            <span className="text-xs text-zinc-500">
+                              {" "}
+                              · {item.memberName} · {orderLabel}
+                            </span>
                           </span>
                         </span>
                         <button
                           onClick={() => deliver(item.id)}
-                          className="rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700"
+                          className="shrink-0 rounded-full bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-700"
                         >
-                          Entregado
+                          Listo
                         </button>
                       </div>
                     ))}
@@ -189,25 +204,33 @@ export function MozoDashboard() {
                 )}
 
                 {pending.length > 0 && (
-                  <ul className="flex flex-col gap-1 text-sm">
-                    {pending.map((i) => (
-                      <li
-                        key={i.id}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <span>
-                          {i.quantity} × {i.name}
-                          <span className="text-xs text-zinc-500">
-                            {" "}
-                            · {i.memberName}
+                  <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-2">
+                    <p className="mb-1 text-xs font-semibold text-zinc-600">
+                      En preparación
+                    </p>
+                    <ul className="flex flex-col gap-1 text-sm">
+                      {pending.map((i) => (
+                        <li
+                          key={i.id}
+                          className="flex items-center justify-between gap-2"
+                        >
+                          <span className="flex flex-wrap items-center gap-1.5">
+                            <StationBadge station={i.station} />
+                            <span>
+                              {i.quantity} × {i.name}
+                              <span className="text-xs text-zinc-500">
+                                {" "}
+                                · {i.memberName}
+                              </span>
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          {ITEM_STATUS_LABELS[i.status]}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                          <span className="shrink-0 text-xs text-zinc-500">
+                            {ITEM_STATUS_LABELS[i.status]}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
 
                 {tableOrders.length > 0 && (
