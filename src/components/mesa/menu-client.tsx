@@ -31,6 +31,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
   const [activeCategory, setActiveCategory] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
   const [showCart, setShowCart] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [joinName, setJoinName] = useState("");
@@ -86,13 +87,32 @@ export function MenuClient({ tableId }: { tableId: string }) {
     [orders]
   );
 
+  const attributedMemberIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const o of orders) {
+      for (const i of o.items) {
+        if (i.memberId !== SHARED_MEMBER_ID) ids.add(i.memberId);
+      }
+    }
+    return ids;
+  }, [orders]);
+  const attributedMembers = (session?.members ?? []).filter((m) =>
+    attributedMemberIds.has(m.id)
+  );
+  const showMemberChips = attributedMembers.length > 1;
   const hasShared = orders.some((o) =>
     o.items.some((i) => i.memberId === SHARED_MEMBER_ID)
   );
+  const activeFilter =
+    filter === "all" ||
+    (showMemberChips && attributedMembers.some((m) => m.id === filter)) ||
+    (hasShared && filter === SHARED_MEMBER_ID)
+      ? filter
+      : "all";
   const visibleOrders =
-    filter === "all"
+    activeFilter === "all"
       ? orders
-      : orders.filter((o) => o.items.some((i) => i.memberId === filter));
+      : orders.filter((o) => o.items.some((i) => i.memberId === activeFilter));
 
   function addToCart(product: Product) {
     setCart((prev) => {
@@ -111,6 +131,10 @@ export function MenuClient({ tableId }: { tableId: string }) {
         },
       ];
     });
+  }
+
+  function removeLine(productId: string) {
+    setCart((prev) => prev.filter((l) => l.productId !== productId));
   }
 
   function changeQuantity(productId: string, delta: number) {
@@ -183,11 +207,6 @@ export function MenuClient({ tableId }: { tableId: string }) {
     }
   }
 
-  function leaveTable() {
-    setMyMemberId(null);
-    window.localStorage.removeItem(storageKey);
-  }
-
   async function submitOrder() {
     if (cart.length === 0) return;
     setSubmitting(true);
@@ -204,6 +223,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
         return;
       }
       setCart([]);
+      setReviewing(false);
       setShowCart(false);
       refreshOrders();
     } catch {
@@ -211,6 +231,11 @@ export function MenuClient({ tableId }: { tableId: string }) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function openCart() {
+    setReviewing(false);
+    setShowCart(true);
   }
 
   return (
@@ -223,7 +248,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
           </p>
         </div>
         <button
-          onClick={() => setShowCart(true)}
+          onClick={openCart}
           className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
         >
           Carrito{cartCount > 0 ? ` (${cartCount})` : ""}
@@ -242,6 +267,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
             }`}
           >
             {m.name}
+            {me?.id === m.id ? " (vos)" : ""}
             <button
               onClick={() => deleteMember(m)}
               aria-label={`Borrar ${m.name}`}
@@ -251,20 +277,13 @@ export function MenuClient({ tableId }: { tableId: string }) {
             </button>
           </span>
         ))}
-        {me ? (
-          <span className="flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-sm text-green-700">
-            Sos {me.name}
-            <button onClick={leaveTable} aria-label="Salir">
-              ✕
-            </button>
-          </span>
-        ) : (
+        {!me && (
           <form onSubmit={joinTable} className="flex items-center gap-2">
             <input
               value={joinName}
               onChange={(e) => setJoinName(e.target.value)}
-              placeholder="Tu nombre"
-              className="w-32 rounded-full border border-zinc-300 px-3 py-1 text-sm"
+              placeholder="Tu nombre (opcional)"
+              className="w-36 rounded-full border border-zinc-300 px-3 py-1 text-sm"
             />
             <button
               type="submit"
@@ -277,6 +296,9 @@ export function MenuClient({ tableId }: { tableId: string }) {
             )}
           </form>
         )}
+        <span className="text-xs text-zinc-400">
+          El nombre es opcional: la comanda es siempre de la mesa.
+        </span>
       </div>
 
       <nav className="flex gap-2 overflow-x-auto pb-1">
@@ -326,30 +348,32 @@ export function MenuClient({ tableId }: { tableId: string }) {
               <button
                 onClick={() => setFilter("all")}
                 className={`rounded-full px-3 py-1 text-sm ${
-                  filter === "all"
+                  activeFilter === "all"
                     ? "bg-zinc-900 text-white"
                     : "border border-zinc-300 text-zinc-700"
                 }`}
               >
                 Todos
               </button>
-              {me && (
-                <button
-                  onClick={() => setFilter(me.id)}
-                  className={`rounded-full px-3 py-1 text-sm ${
-                    filter === me.id
-                      ? "bg-zinc-900 text-white"
-                      : "border border-zinc-300 text-zinc-700"
-                  }`}
-                >
-                  {me.name}
-                </button>
-              )}
+              {showMemberChips &&
+                attributedMembers.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setFilter(m.id)}
+                    className={`rounded-full px-3 py-1 text-sm ${
+                      activeFilter === m.id
+                        ? "bg-zinc-900 text-white"
+                        : "border border-zinc-300 text-zinc-700"
+                    }`}
+                  >
+                    {m.name}
+                  </button>
+                ))}
               {hasShared && (
                 <button
                   onClick={() => setFilter(SHARED_MEMBER_ID)}
                   className={`rounded-full px-3 py-1 text-sm ${
-                    filter === SHARED_MEMBER_ID
+                    activeFilter === SHARED_MEMBER_ID
                       ? "bg-zinc-900 text-white"
                       : "border border-zinc-300 text-zinc-700"
                   }`}
@@ -367,7 +391,9 @@ export function MenuClient({ tableId }: { tableId: string }) {
             visibleOrders.map((o) => (
               <div key={o.id} className="rounded-xl border border-zinc-200 p-4">
                 <div className="mb-2 flex items-center justify-between text-sm text-zinc-500">
-                  <span>{o.id} · {formatTime(o.createdAt)}</span>
+                  <span>
+                    {o.id} · {formatTime(o.createdAt)}
+                  </span>
                 </div>
                 <ul className="flex flex-col gap-1">
                   {o.items.map((i) => (
@@ -482,7 +508,9 @@ export function MenuClient({ tableId }: { tableId: string }) {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
           <div className="flex max-h-[85vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Tu pedido</h2>
+              <h2 className="text-lg font-semibold">
+                {reviewing ? "Confirmar pedido" : "Tu pedido"}
+              </h2>
               <button
                 onClick={() => setShowCart(false)}
                 className="text-zinc-500"
@@ -494,86 +522,150 @@ export function MenuClient({ tableId }: { tableId: string }) {
 
             {cart.length === 0 ? (
               <p className="text-sm text-zinc-500">El carrito está vacío.</p>
-            ) : (
-              <ul className="flex flex-col gap-4">
-                {cart.map((l) => {
-                  const product = menu?.products.find(
-                    (p) => p.id === l.productId
-                  );
-                  if (!product) return null;
-                  return (
-                    <li key={l.productId} className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{product.name}</span>
-                        <span className="text-sm text-zinc-500">
+            ) : reviewing ? (
+              <>
+                <ul className="flex flex-col gap-2">
+                  {cart.map((l) => {
+                    const product = menu?.products.find(
+                      (p) => p.id === l.productId
+                    );
+                    if (!product) return null;
+                    const memberName =
+                      l.memberId === SHARED_MEMBER_ID
+                        ? "Compartido"
+                        : session?.members.find((m) => m.id === l.memberId)
+                              ?.name ?? "Compartido";
+                    return (
+                      <li
+                        key={l.productId}
+                        className="flex items-start justify-between gap-2 text-sm"
+                      >
+                        <span>
+                          {l.quantity} × {product.name}
+                          <span className="text-zinc-500">
+                            {" "}
+                            · {memberName}
+                            {l.notes ? ` — ${l.notes}` : ""}
+                          </span>
+                        </span>
+                        <span className="text-zinc-500">
                           {formatPrice(product.priceCents * l.quantity)}
                         </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => changeQuantity(l.productId, -1)}
-                          className="h-7 w-7 rounded-full border border-zinc-300"
-                          aria-label="Restar"
-                        >
-                          −
-                        </button>
-                        <span className="w-6 text-center text-sm">
-                          {l.quantity}
-                        </span>
-                        <button
-                          onClick={() => changeQuantity(l.productId, 1)}
-                          className="h-7 w-7 rounded-full border border-zinc-300"
-                          aria-label="Sumar"
-                        >
-                          +
-                        </button>
-                        <select
-                          value={l.memberId}
-                          onChange={(e) =>
-                            changeMember(l.productId, e.target.value)
-                          }
-                          className="ml-auto rounded-lg border border-zinc-300 px-2 py-1 text-sm"
-                          disabled={!me}
-                        >
-                          {me && <option value={me.id}>Yo ({me.name})</option>}
-                          <option value={SHARED_MEMBER_ID}>Compartido</option>
-                        </select>
-                      </div>
-                      <input
-                        value={l.notes ?? ""}
-                        onChange={(e) =>
-                          changeNotes(l.productId, e.target.value)
-                        }
-                        placeholder="Nota (ej: sin cebolla)"
-                        className="w-full rounded-lg border border-zinc-300 px-2 py-1 text-sm"
-                      />
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                      </li>
+                    );
+                  })}
+                </ul>
 
-            <div className="mt-auto flex flex-col gap-2">
-              {!me && (
-                <p className="text-xs text-zinc-500">
-                  Unite como participante arriba para que tus productos se
-                  acrediten a tu nombre (sino quedan como
-                  &quot;Compartido&quot;).
-                </p>
-              )}
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-zinc-500">Total</span>
-                <span className="font-semibold">{formatPrice(cartTotal)}</span>
-              </div>
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <button
-                onClick={submitOrder}
-                disabled={cart.length === 0 || submitting}
-                className="w-full rounded-full bg-zinc-900 py-3 text-sm font-medium text-white disabled:opacity-40"
-              >
-                {submitting ? "Enviando…" : "Enviar pedido"}
-              </button>
-            </div>
+                <div className="mt-auto flex flex-col gap-2 border-t border-zinc-100 pt-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-500">Personas en la mesa</span>
+                    <span className="font-semibold">{peopleCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-500">Total</span>
+                    <span className="font-semibold">{formatPrice(cartTotal)}</span>
+                  </div>
+                  {error && <p className="text-sm text-red-600">{error}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setReviewing(false)}
+                      className="w-1/3 rounded-full border border-zinc-300 py-3 text-sm font-medium text-zinc-700"
+                    >
+                      ← Volver
+                    </button>
+                    <button
+                      onClick={submitOrder}
+                      disabled={submitting}
+                      className="w-2/3 rounded-full bg-zinc-900 py-3 text-sm font-medium text-white disabled:opacity-40"
+                    >
+                      {submitting ? "Enviando…" : "Confirmar y enviar"}
+                    </button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <ul className="flex flex-col gap-4">
+                  {cart.map((l) => {
+                    const product = menu?.products.find(
+                      (p) => p.id === l.productId
+                    );
+                    if (!product) return null;
+                    return (
+                      <li key={l.productId} className="flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">{product.name}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm text-zinc-500">
+                              {formatPrice(product.priceCents * l.quantity)}
+                            </span>
+                            <button
+                              onClick={() => removeLine(l.productId)}
+                              aria-label={`Quitar ${product.name}`}
+                              className="text-sm text-red-500 hover:underline"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => changeQuantity(l.productId, -1)}
+                            className="h-7 w-7 rounded-full border border-zinc-300"
+                            aria-label="Restar"
+                          >
+                            −
+                          </button>
+                          <span className="w-6 text-center text-sm">
+                            {l.quantity}
+                          </span>
+                          <button
+                            onClick={() => changeQuantity(l.productId, 1)}
+                            className="h-7 w-7 rounded-full border border-zinc-300"
+                            aria-label="Sumar"
+                          >
+                            +
+                          </button>
+                          <select
+                            value={l.memberId}
+                            onChange={(e) =>
+                              changeMember(l.productId, e.target.value)
+                            }
+                            className="ml-auto rounded-lg border border-zinc-300 px-2 py-1 text-sm"
+                            disabled={!me}
+                          >
+                            {me && <option value={me.id}>Yo ({me.name})</option>}
+                            <option value={SHARED_MEMBER_ID}>Compartido</option>
+                          </select>
+                        </div>
+                        <input
+                          value={l.notes ?? ""}
+                          onChange={(e) =>
+                            changeNotes(l.productId, e.target.value)
+                          }
+                          placeholder="Nota (ej: sin cebolla)"
+                          className="w-full rounded-lg border border-zinc-300 px-2 py-1 text-sm"
+                        />
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="mt-auto flex flex-col gap-2 border-t border-zinc-100 pt-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-zinc-500">Total</span>
+                    <span className="font-semibold">{formatPrice(cartTotal)}</span>
+                  </div>
+                  <button
+                    onClick={() => setReviewing(true)}
+                    disabled={cart.length === 0}
+                    className="w-full rounded-full bg-zinc-900 py-3 text-sm font-medium text-white disabled:opacity-40"
+                  >
+                    Revisar pedido
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
