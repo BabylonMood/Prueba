@@ -3,6 +3,8 @@
 import {
   createContext,
   useContext,
+  useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -249,18 +251,76 @@ export function useI18n() {
   return useContext(I18nContext);
 }
 
+const LANG_LABELS: Record<Lang, string> = {
+  es: "Español",
+  en: "English",
+  pt: "Português",
+};
+
 export function LanguageSelect() {
   const { lang, setLang } = useI18n();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocumentClick(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocumentClick);
+    return () => document.removeEventListener("mousedown", onDocumentClick);
+  }, [open]);
+
   return (
-    <select
-      value={lang}
-      onChange={(e) => setLang(e.target.value as Lang)}
-      className="rounded-md border border-[#e2e8f0] bg-white px-2 py-1 text-xs text-[#475569] outline-none focus:border-[#0f5132]"
-      aria-label="Idioma"
-    >
-      <option value="es">Español</option>
-      <option value="en">English</option>
-      <option value="pt">Português</option>
-    </select>
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-md border border-[#0f5132] bg-white px-3 py-1.5 text-xs font-semibold text-[#0f5132] transition-colors hover:bg-[#f1f5f9]"
+      >
+        {LANG_LABELS[lang]}
+        <svg
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          <path
+            fillRule="evenodd"
+            d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+      {open && (
+        <ul
+          role="listbox"
+          className="absolute right-0 z-50 mt-1 w-36 overflow-hidden rounded-lg border border-[#e2e8f0] bg-white shadow-lg"
+        >
+          {(Object.keys(LANG_LABELS) as Lang[]).map((l) => (
+            <li key={l} role="option" aria-selected={l === lang}>
+              <button
+                type="button"
+                onClick={() => {
+                  setLang(l);
+                  setOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-sm ${
+                  l === lang
+                    ? "bg-[#0f5132] font-semibold text-white"
+                    : "text-[#334155] hover:bg-[#f1f5f9]"
+                }`}
+              >
+                {LANG_LABELS[l]}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
