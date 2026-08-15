@@ -6,8 +6,10 @@ import { formatTime } from "@/lib/format";
 import { usePolling } from "@/lib/use-polling";
 
 export function MozoDashboard() {
-  const tables = usePolling<Table[]>("/api/tables", 3000) ?? [];
-  const orders = usePolling<Order[]>("/api/orders", 3000) ?? [];
+  const { data: tablesData } = usePolling<Table[]>("/api/tables", 3000);
+  const tables = tablesData ?? [];
+  const { data: ordersData } = usePolling<Order[]>("/api/orders", 3000);
+  const orders = ordersData ?? [];
 
   const ordersByTable = new Map<string, Order[]>();
   for (const order of orders) {

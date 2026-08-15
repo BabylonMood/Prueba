@@ -99,6 +99,18 @@ export function joinSession(
   return { ok: true, session, member };
 }
 
+export function removeMember(
+  tableId: string,
+  memberId: string
+): { ok: boolean; error?: string } {
+  const session = getSessionByTable(tableId);
+  if (!session) return { ok: false, error: "Sesión no encontrada" };
+  const index = session.members.findIndex((m) => m.id === memberId);
+  if (index === -1) return { ok: false, error: "Participante no encontrado" };
+  session.members.splice(index, 1);
+  return { ok: true };
+}
+
 export function createOrder(input: {
   tableId: string;
   lines: CreateOrderLine[];
