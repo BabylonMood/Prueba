@@ -1,4 +1,4 @@
-import { dataCategories, dataProducts, dataTables } from "./data";
+import { dataCategories, dataProducts, dataTables, RESTAURANT_NAME, RESTAURANT_TAGLINE } from "./data";
 import type {
   CreateOrderLine,
   ItemStatus,
@@ -30,7 +30,7 @@ const nextSessionId = (): string => `s${++sessionCounter}`;
 const nextMemberId = (): string => `m${++memberCounter}`;
 
 export function getMenu(): MenuData {
-  return { categories, products };
+  return { name: RESTAURANT_NAME, tagline: RESTAURANT_TAGLINE, categories, products };
 }
 
 export function getTables(): Table[] {

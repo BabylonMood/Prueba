@@ -1,5 +1,8 @@
 import type { Category, Product, Table } from "./types";
 
+export const RESTAURANT_NAME = "Casa Fuego";
+export const RESTAURANT_TAGLINE = "Comida de barrio, hecha al momento";
+
 export const dataCategories: Category[] = [
   { id: "hamburguesas", name: "Hamburguesas" },
   { id: "pizzas", name: "Pizzas" },
