@@ -10,12 +10,12 @@ export default async function MesaPage({
   params: Promise<{ tableId: string }>;
 }) {
   const { tableId } = await params;
-  const table = getTable(tableId);
+  const table = await getTable(tableId);
   if (!table) notFound();
 
   return (
     <main className="flex flex-1">
-      <MenuClient tableId={tableId} />
+      <MenuClient tableId={tableId} tableLabel={table.label} />
     </main>
   );
 }

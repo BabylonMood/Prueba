@@ -24,8 +24,8 @@ const INTERFACES = [
   },
 ];
 
-export default function Home() {
-  const tables = getTables();
+export default async function Home() {
+  const tables = await getTables();
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-10">
