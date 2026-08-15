@@ -1,15 +1,33 @@
 "use client";
 
-import type { Order, Table } from "@/lib/types";
+import type { Order, Table, TableRequest } from "@/lib/types";
 import { ITEM_STATUS_LABELS } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import { usePolling } from "@/lib/use-polling";
 
+const REQUEST_LABELS: Record<string, string> = {
+  mozo: "Llamar al mozo",
+  cubiertos: "Cubiertos",
+  servilletas: "Servilletas",
+  cuenta: "La cuenta",
+  sal: "Sal",
+  agua: "Agua",
+  otro: "Otro",
+};
+
 export function MozoDashboard() {
-  const { data: tablesData } = usePolling<Table[]>("/api/tables", 3000);
+  const { data: tablesData, refresh: refreshTables } = usePolling<Table[]>(
+    "/api/tables",
+    3000
+  );
   const tables = tablesData ?? [];
   const { data: ordersData } = usePolling<Order[]>("/api/orders", 3000);
   const orders = ordersData ?? [];
+  const { data: requestsData, refresh: refreshRequests } = usePolling<
+    TableRequest[]
+  >("/api/requests", 3000);
+  const requests = requestsData ?? [];
+  const pendingRequests = requests.filter((r) => r.status === "pendiente");
 
   const ordersByTable = new Map<string, Order[]>();
   for (const order of orders) {
@@ -24,6 +42,24 @@ export function MozoDashboard() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "entregado" }),
     });
+  }
+
+  async function attend(requestId: string) {
+    await fetch(`/api/requests/${requestId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "atendido" }),
+    });
+    refreshRequests();
+  }
+
+  async function closeTable(tableId: string) {
+    await fetch("/api/sessions", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "close", tableId }),
+    });
+    refreshTables();
   }
 
   const occupied = tables.filter((t) => t.status === "ocupada");
@@ -47,8 +83,45 @@ export function MozoDashboard() {
           <span className="rounded-full bg-green-100 px-3 py-1 font-medium text-green-700">
             {readyTotal} listas para entregar
           </span>
+          {pendingRequests.length > 0 && (
+            <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">
+              {pendingRequests.length} solicitudes
+            </span>
+          )}
         </div>
       </header>
+
+      {pendingRequests.length > 0 && (
+        <section className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <h2 className="font-semibold text-amber-800">
+            Solicitudes pendientes
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {pendingRequests.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-2 rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm"
+              >
+                <span>
+                  <span className="font-semibold">{r.tableLabel}</span>
+                  {" · "}
+                  {REQUEST_LABELS[r.kind]}
+                  <span className="text-xs text-zinc-500">
+                    {" · "}
+                    {formatTime(r.createdAt)}
+                  </span>
+                </span>
+                <button
+                  onClick={() => attend(r.id)}
+                  className="rounded-full bg-amber-600 px-3 py-1 text-xs font-medium text-white hover:bg-amber-700"
+                >
+                  Atender
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {occupied.length === 0 ? (
         <p className="text-sm text-zinc-500">
@@ -79,11 +152,12 @@ export function MozoDashboard() {
                     <h3 className="font-bold">{t.label}</h3>
                     <p className="text-xs text-zinc-500">{t.sector}</p>
                   </div>
-                  {ready.length > 0 && (
-                    <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">
-                      {ready.length} listos
-                    </span>
-                  )}
+                  <button
+                    onClick={() => closeTable(t.id)}
+                    className="rounded-full border border-red-300 px-3 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                  >
+                    Cerrar mesa
+                  </button>
                 </div>
 
                 {ready.length > 0 && (

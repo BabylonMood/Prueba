@@ -7,6 +7,7 @@ export type TableStatus = "libre" | "ocupada";
 export interface Category {
   id: string;
   name: string;
+  i18nKey?: string;
 }
 
 export interface Product {
@@ -68,6 +69,26 @@ export interface MenuData {
   tagline: string;
   categories: Category[];
   products: Product[];
+}
+
+export type RequestKind =
+  | "mozo"
+  | "cubiertos"
+  | "servilletas"
+  | "cuenta"
+  | "sal"
+  | "agua"
+  | "otro";
+
+export type RequestStatus = "pendiente" | "atendido";
+
+export interface TableRequest {
+  id: string;
+  tableId: string;
+  tableLabel: string;
+  kind: RequestKind;
+  status: RequestStatus;
+  createdAt: number;
 }
 
 export interface CreateOrderLine {

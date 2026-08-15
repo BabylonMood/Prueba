@@ -6,9 +6,11 @@ import type {
   Order,
   OrderItem,
   Product,
+  RequestKind,
   StationId,
   Table,
   TableMember,
+  TableRequest,
   TableSession,
 } from "./types";
 import { SHARED_MEMBER_ID } from "./types";
@@ -18,16 +20,19 @@ const products: Product[] = dataProducts;
 const tables: Table[] = dataTables;
 const orders: Order[] = [];
 const sessions: TableSession[] = [];
+const requests: TableRequest[] = [];
 
 let orderCounter = 0;
 let itemCounter = 0;
 let sessionCounter = 0;
 let memberCounter = 0;
+let requestCounter = 0;
 
 const nextOrderId = (): string => `#${++orderCounter}`;
 const nextItemId = (): string => `item_${++itemCounter}`;
 const nextSessionId = (): string => `s${++sessionCounter}`;
 const nextMemberId = (): string => `m${++memberCounter}`;
+const nextRequestId = (): string => `r${++requestCounter}`;
 
 export function getMenu(): MenuData {
   return { name: RESTAURANT_NAME, tagline: RESTAURANT_TAGLINE, categories, products };
@@ -192,4 +197,49 @@ export function updateItemStatus(
     }
   }
   return { ok: false, error: "Ítem no encontrado" };
+}
+
+export function addRequest(
+  tableId: string,
+  kind: RequestKind
+): { ok: boolean; request?: TableRequest; error?: string } {
+  const table = getTable(tableId);
+  if (!table) return { ok: false, error: "Mesa no encontrada" };
+  const request: TableRequest = {
+    id: nextRequestId(),
+    tableId,
+    tableLabel: table.label,
+    kind,
+    status: "pendiente",
+    createdAt: Date.now(),
+  };
+  requests.push(request);
+  return { ok: true, request };
+}
+
+export function getAllRequests(): TableRequest[] {
+  return requests;
+}
+
+export function getRequestsByTable(tableId: string): TableRequest[] {
+  return requests.filter((r) => r.tableId === tableId);
+}
+
+export function markRequestAtendido(
+  requestId: string
+): { ok: boolean; error?: string } {
+  const request = requests.find((r) => r.id === requestId);
+  if (!request) return { ok: false, error: "Solicitud no encontrada" };
+  request.status = "atendido";
+  return { ok: true };
+}
+
+export function closeSession(
+  tableId: string
+): { ok: boolean; error?: string } {
+  const session = getSessionByTable(tableId);
+  if (session) session.status = "cerrada";
+  const table = getTable(tableId);
+  if (table) table.status = "libre";
+  return { ok: true };
 }
