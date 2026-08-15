@@ -64,6 +64,8 @@ export interface Order {
 }
 
 export interface MenuData {
+  name: string;
+  tagline: string;
   categories: Category[];
   products: Product[];
 }

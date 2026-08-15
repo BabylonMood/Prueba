@@ -239,31 +239,33 @@ export function MenuClient({ tableId }: { tableId: string }) {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
-      <header className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Nuestra carta</h1>
-          <p className="text-sm text-zinc-500">
-            Mesa {tableId.replace("t", "")} · Pedí y seguí tu pedido en vivo
-          </p>
-        </div>
-        <button
-          onClick={openCart}
-          className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-        >
-          Carrito{cartCount > 0 ? ` (${cartCount})` : ""}
-        </button>
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 pb-28 pt-8">
+      <header className="text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#c2562e]">
+          Mesa {tableId.replace("t", "")}
+        </p>
+        <h1 className="mt-1 text-4xl font-black tracking-tight text-[#292016]">
+          {menu?.name ?? "Nuestra carta"}
+        </h1>
+        <p className="mt-1 text-sm text-[#8a7a68]">{menu?.tagline}</p>
       </header>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-200 p-3">
-        <span className="text-sm font-medium">Participantes:</span>
+      <section className="rounded-2xl bg-[#f7e7dc] px-4 py-3 text-sm leading-relaxed text-[#7a4b33]">
+        Armá el pedido desde acá: elegí lo que quieran y envialo. Cada uno puede
+        sumar su nombre para que su pedido quede a su cuenta — o uno solo pide
+        por todos.
+      </section>
+
+      <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#eadfce] bg-white p-3">
+        <span className="text-sm font-semibold text-[#292016]">Nombres</span>
+        <span className="text-xs font-medium text-[#c2562e]">(Opcional)</span>
         {session?.members.map((m) => (
           <span
             key={m.id}
             className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm ${
               me?.id === m.id
-                ? "bg-zinc-900 text-white"
-                : "bg-zinc-100 text-zinc-700"
+                ? "bg-[#292016] text-white"
+                : "bg-[#f7e7dc] text-[#7a4b33]"
             }`}
           >
             {m.name}
@@ -278,61 +280,61 @@ export function MenuClient({ tableId }: { tableId: string }) {
           </span>
         ))}
         {!me && (
-          <form onSubmit={joinTable} className="flex items-center gap-2">
+          <form onSubmit={joinTable} className="ml-auto flex items-center gap-2">
             <input
               value={joinName}
               onChange={(e) => setJoinName(e.target.value)}
-              placeholder="Tu nombre (opcional)"
-              className="w-36 rounded-full border border-zinc-300 px-3 py-1 text-sm"
+              placeholder="Tu nombre"
+              className="w-36 rounded-full border border-[#eadfce] px-3 py-1 text-sm outline-none focus:border-[#c2562e]"
             />
             <button
               type="submit"
-              className="rounded-full bg-zinc-900 px-3 py-1 text-sm text-white"
+              className="rounded-full bg-[#292016] px-3 py-1 text-sm text-white"
             >
-              Unirme
+              Sumarme
             </button>
             {joinError && (
               <span className="text-xs text-red-600">{joinError}</span>
             )}
           </form>
         )}
-        <span className="text-xs text-zinc-400">
-          El nombre es opcional: la comanda es siempre de la mesa.
-        </span>
+      </section>
+
+      <div>
+        <h2 className="mb-3 text-2xl font-bold text-[#292016]">Nuestra carta</h2>
+        <nav className="flex gap-1.5 overflow-x-auto rounded-full border border-[#eadfce] bg-white p-1.5">
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setActiveCategory(c.id)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${
+                active === c.id
+                  ? "bg-[#c2562e] text-white"
+                  : "text-[#7a4b33] hover:bg-[#f7e7dc]"
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </nav>
       </div>
 
-      <nav className="flex gap-2 overflow-x-auto pb-1">
-        {categories.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setActiveCategory(c.id)}
-            className={`shrink-0 rounded-full border px-4 py-1.5 text-sm ${
-              active === c.id
-                ? "border-zinc-900 bg-zinc-900 text-white"
-                : "border-zinc-300 text-zinc-700"
-            }`}
-          >
-            {c.name}
-          </button>
-        ))}
-      </nav>
-
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="grid gap-2.5 sm:grid-cols-2">
         {products.map((p) => (
           <div
             key={p.id}
-            className="flex flex-col gap-2 rounded-xl border border-zinc-200 p-4"
+            className="flex flex-col gap-2 rounded-2xl border border-[#eadfce] bg-white p-4"
           >
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-semibold">{p.name}</h3>
-              <span className="shrink-0 text-sm text-zinc-500">
+              <h3 className="font-semibold text-[#292016]">{p.name}</h3>
+              <span className="shrink-0 font-semibold text-[#c2562e]">
                 {formatPrice(p.priceCents)}
               </span>
             </div>
-            <p className="text-sm text-zinc-500">{p.description}</p>
+            <p className="text-sm text-[#8a7a68]">{p.description}</p>
             <button
               onClick={() => addToCart(p)}
-              className="mt-auto self-start rounded-full border border-zinc-300 px-4 py-1.5 text-sm hover:border-zinc-900"
+              className="mt-auto self-start rounded-full border border-[#eadfce] px-4 py-1.5 text-sm font-medium text-[#292016] hover:border-[#c2562e] hover:text-[#c2562e]"
             >
               Agregar
             </button>
@@ -343,14 +345,14 @@ export function MenuClient({ tableId }: { tableId: string }) {
       {orders.length > 0 && (
         <section className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Pedidos de la mesa</h2>
+            <h2 className="text-lg font-bold text-[#292016]">Pedidos de la mesa</h2>
             <div className="flex gap-1">
               <button
                 onClick={() => setFilter("all")}
                 className={`rounded-full px-3 py-1 text-sm ${
                   activeFilter === "all"
-                    ? "bg-zinc-900 text-white"
-                    : "border border-zinc-300 text-zinc-700"
+                    ? "bg-[#292016] text-white"
+                    : "border border-[#eadfce] text-[#7a4b33]"
                 }`}
               >
                 Todos
@@ -362,8 +364,8 @@ export function MenuClient({ tableId }: { tableId: string }) {
                     onClick={() => setFilter(m.id)}
                     className={`rounded-full px-3 py-1 text-sm ${
                       activeFilter === m.id
-                        ? "bg-zinc-900 text-white"
-                        : "border border-zinc-300 text-zinc-700"
+                        ? "bg-[#292016] text-white"
+                        : "border border-[#eadfce] text-[#7a4b33]"
                     }`}
                   >
                     {m.name}
@@ -374,8 +376,8 @@ export function MenuClient({ tableId }: { tableId: string }) {
                   onClick={() => setFilter(SHARED_MEMBER_ID)}
                   className={`rounded-full px-3 py-1 text-sm ${
                     activeFilter === SHARED_MEMBER_ID
-                      ? "bg-zinc-900 text-white"
-                      : "border border-zinc-300 text-zinc-700"
+                      ? "bg-[#292016] text-white"
+                      : "border border-[#eadfce] text-[#7a4b33]"
                   }`}
                 >
                   Compartido
@@ -384,13 +386,16 @@ export function MenuClient({ tableId }: { tableId: string }) {
             </div>
           </div>
           {visibleOrders.length === 0 ? (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-[#8a7a68]">
               No hay pedidos para este filtro.
             </p>
           ) : (
             visibleOrders.map((o) => (
-              <div key={o.id} className="rounded-xl border border-zinc-200 p-4">
-                <div className="mb-2 flex items-center justify-between text-sm text-zinc-500">
+              <div
+                key={o.id}
+                className="rounded-2xl border border-[#eadfce] bg-white p-4"
+              >
+                <div className="mb-2 flex items-center justify-between text-sm text-[#8a7a68]">
                   <span>
                     {o.id} · {formatTime(o.createdAt)}
                   </span>
@@ -403,7 +408,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
                     >
                       <span>
                         {i.quantity} × {i.name}
-                        <span className="text-zinc-500">
+                        <span className="text-[#8a7a68]">
                           {" "}
                           · {i.memberName}
                           {i.notes ? ` — ${i.notes}` : ""}
@@ -417,7 +422,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
                               ? "bg-emerald-100 text-emerald-700"
                               : i.status === "preparando"
                                 ? "bg-amber-100 text-amber-700"
-                                : "bg-zinc-100 text-zinc-600"
+                                : "bg-[#f7e7dc] text-[#8a7a68]"
                         }`}
                       >
                         {ITEM_STATUS_LABELS[i.status]}
@@ -432,20 +437,20 @@ export function MenuClient({ tableId }: { tableId: string }) {
       )}
 
       {orders.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4">
+        <section className="flex flex-col gap-3 rounded-2xl border border-[#eadfce] bg-white p-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Cuenta</h2>
-            <span className="text-sm text-zinc-500">
+            <h2 className="text-lg font-bold text-[#292016]">Cuenta</h2>
+            <span className="text-sm text-[#8a7a68]">
               {orders.length} pedido(s)
             </span>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-sm text-zinc-500">Personas en la mesa</span>
+            <span className="text-sm text-[#8a7a68]">Personas en la mesa</span>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => changePeopleCount(-1)}
-                className="h-7 w-7 rounded-full border border-zinc-300"
+                className="h-7 w-7 rounded-full border border-[#eadfce] text-[#292016]"
                 aria-label="Menos personas"
               >
                 −
@@ -455,7 +460,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
               </span>
               <button
                 onClick={() => changePeopleCount(1)}
-                className="h-7 w-7 rounded-full border border-zinc-300"
+                className="h-7 w-7 rounded-full border border-[#eadfce] text-[#292016]"
                 aria-label="Más personas"
               >
                 +
@@ -464,7 +469,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
           </div>
 
           <div className="flex flex-col gap-1">
-            <span className="text-sm text-zinc-500">Dividir en</span>
+            <span className="text-sm text-[#8a7a68]">Dividir en</span>
             <div className="flex flex-wrap gap-1">
               {Array.from({ length: peopleCount }, (_, i) => i + 1).map((n) => (
                 <button
@@ -472,8 +477,8 @@ export function MenuClient({ tableId }: { tableId: string }) {
                   onClick={() => setSplitCount(n)}
                   className={`rounded-full px-3 py-1 text-sm ${
                     split === n
-                      ? "bg-zinc-900 text-white"
-                      : "border border-zinc-300 text-zinc-700"
+                      ? "bg-[#292016] text-white"
+                      : "border border-[#eadfce] text-[#7a4b33]"
                   }`}
                 >
                   {n === 1 ? "1 (paga 1)" : `${n} personas`}
@@ -482,14 +487,14 @@ export function MenuClient({ tableId }: { tableId: string }) {
             </div>
           </div>
 
-          <div className="mt-2 flex flex-col gap-1 border-t border-zinc-100 pt-3">
+          <div className="mt-2 flex flex-col gap-1 border-t border-[#f7e7dc] pt-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-zinc-500">Total de la mesa</span>
+              <span className="text-[#8a7a68]">Total de la mesa</span>
               <span className="font-semibold">{formatPrice(tableTotal)}</span>
             </div>
             {split > 1 && (
               <div className="flex items-center justify-between text-sm">
-                <span className="text-zinc-500">
+                <span className="text-[#8a7a68]">
                   Por persona (dividido en {split})
                 </span>
                 <span className="font-semibold">
@@ -497,23 +502,36 @@ export function MenuClient({ tableId }: { tableId: string }) {
                 </span>
               </div>
             )}
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-[#b09a86]">
               El pago final se procesa en el POS del local.
             </p>
           </div>
         </section>
       )}
 
+      {cartCount > 0 && (
+        <button
+          onClick={openCart}
+          className="fixed bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full bg-[#292016] px-5 py-3 text-sm font-semibold text-white shadow-lg"
+        >
+          <span className="grid h-6 w-6 place-items-center rounded-full bg-[#c2562e] text-xs font-bold">
+            {cartCount}
+          </span>
+          Ver pedido
+          <span className="text-[#f0c9b0]">{formatPrice(cartTotal)}</span>
+        </button>
+      )}
+
       {showCart && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
           <div className="flex max-h-[85vh] w-full max-w-md flex-col gap-4 overflow-y-auto rounded-t-2xl bg-white p-5 sm:rounded-2xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">
+              <h2 className="text-lg font-bold text-[#292016]">
                 {reviewing ? "Confirmar pedido" : "Tu pedido"}
               </h2>
               <button
                 onClick={() => setShowCart(false)}
-                className="text-zinc-500"
+                className="text-[#8a7a68]"
                 aria-label="Cerrar"
               >
                 ✕
@@ -521,7 +539,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
             </div>
 
             {cart.length === 0 ? (
-              <p className="text-sm text-zinc-500">El carrito está vacío.</p>
+              <p className="text-sm text-[#8a7a68]">El carrito está vacío.</p>
             ) : reviewing ? (
               <>
                 <ul className="flex flex-col gap-2">
@@ -542,13 +560,13 @@ export function MenuClient({ tableId }: { tableId: string }) {
                       >
                         <span>
                           {l.quantity} × {product.name}
-                          <span className="text-zinc-500">
+                          <span className="text-[#8a7a68]">
                             {" "}
                             · {memberName}
                             {l.notes ? ` — ${l.notes}` : ""}
                           </span>
                         </span>
-                        <span className="text-zinc-500">
+                        <span className="text-[#8a7a68]">
                           {formatPrice(product.priceCents * l.quantity)}
                         </span>
                       </li>
@@ -556,27 +574,27 @@ export function MenuClient({ tableId }: { tableId: string }) {
                   })}
                 </ul>
 
-                <div className="mt-auto flex flex-col gap-2 border-t border-zinc-100 pt-3">
+                <div className="mt-auto flex flex-col gap-2 border-t border-[#f7e7dc] pt-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-zinc-500">Personas en la mesa</span>
+                    <span className="text-[#8a7a68]">Personas en la mesa</span>
                     <span className="font-semibold">{peopleCount}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-zinc-500">Total</span>
+                    <span className="text-[#8a7a68]">Total</span>
                     <span className="font-semibold">{formatPrice(cartTotal)}</span>
                   </div>
                   {error && <p className="text-sm text-red-600">{error}</p>}
                   <div className="flex gap-2">
                     <button
                       onClick={() => setReviewing(false)}
-                      className="w-1/3 rounded-full border border-zinc-300 py-3 text-sm font-medium text-zinc-700"
+                      className="w-1/3 rounded-full border border-[#eadfce] py-3 text-sm font-medium text-[#7a4b33]"
                     >
                       ← Volver
                     </button>
                     <button
                       onClick={submitOrder}
                       disabled={submitting}
-                      className="w-2/3 rounded-full bg-zinc-900 py-3 text-sm font-medium text-white disabled:opacity-40"
+                      className="w-2/3 rounded-full bg-[#c2562e] py-3 text-sm font-medium text-white disabled:opacity-40"
                     >
                       {submitting ? "Enviando…" : "Confirmar y enviar"}
                     </button>
@@ -594,9 +612,11 @@ export function MenuClient({ tableId }: { tableId: string }) {
                     return (
                       <li key={l.productId} className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium">{product.name}</span>
+                          <span className="font-medium text-[#292016]">
+                            {product.name}
+                          </span>
                           <div className="flex items-center gap-3">
-                            <span className="text-sm text-zinc-500">
+                            <span className="text-sm text-[#8a7a68]">
                               {formatPrice(product.priceCents * l.quantity)}
                             </span>
                             <button
@@ -611,7 +631,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => changeQuantity(l.productId, -1)}
-                            className="h-7 w-7 rounded-full border border-zinc-300"
+                            className="h-7 w-7 rounded-full border border-[#eadfce] text-[#292016]"
                             aria-label="Restar"
                           >
                             −
@@ -621,7 +641,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
                           </span>
                           <button
                             onClick={() => changeQuantity(l.productId, 1)}
-                            className="h-7 w-7 rounded-full border border-zinc-300"
+                            className="h-7 w-7 rounded-full border border-[#eadfce] text-[#292016]"
                             aria-label="Sumar"
                           >
                             +
@@ -631,7 +651,7 @@ export function MenuClient({ tableId }: { tableId: string }) {
                             onChange={(e) =>
                               changeMember(l.productId, e.target.value)
                             }
-                            className="ml-auto rounded-lg border border-zinc-300 px-2 py-1 text-sm"
+                            className="ml-auto rounded-lg border border-[#eadfce] px-2 py-1 text-sm"
                             disabled={!me}
                           >
                             {me && <option value={me.id}>Yo ({me.name})</option>}
@@ -644,22 +664,22 @@ export function MenuClient({ tableId }: { tableId: string }) {
                             changeNotes(l.productId, e.target.value)
                           }
                           placeholder="Nota (ej: sin cebolla)"
-                          className="w-full rounded-lg border border-zinc-300 px-2 py-1 text-sm"
+                          className="w-full rounded-lg border border-[#eadfce] px-2 py-1 text-sm outline-none focus:border-[#c2562e]"
                         />
                       </li>
                     );
                   })}
                 </ul>
 
-                <div className="mt-auto flex flex-col gap-2 border-t border-zinc-100 pt-3">
+                <div className="mt-auto flex flex-col gap-2 border-t border-[#f7e7dc] pt-3">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-zinc-500">Total</span>
+                    <span className="text-[#8a7a68]">Total</span>
                     <span className="font-semibold">{formatPrice(cartTotal)}</span>
                   </div>
                   <button
                     onClick={() => setReviewing(true)}
                     disabled={cart.length === 0}
-                    className="w-full rounded-full bg-zinc-900 py-3 text-sm font-medium text-white disabled:opacity-40"
+                    className="w-full rounded-full bg-[#c2562e] py-3 text-sm font-medium text-white disabled:opacity-40"
                   >
                     Revisar pedido
                   </button>
