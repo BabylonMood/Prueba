@@ -25,6 +25,21 @@ export interface Table {
   status: TableStatus;
 }
 
+export const SHARED_MEMBER_ID = "compartido";
+
+export interface TableMember {
+  id: string;
+  name: string;
+}
+
+export interface TableSession {
+  id: string;
+  tableId: string;
+  status: "activa" | "cerrada";
+  createdAt: number;
+  members: TableMember[];
+}
+
 export interface OrderItem {
   id: string;
   productId: string;
@@ -34,12 +49,15 @@ export interface OrderItem {
   notes?: string;
   station: StationId;
   status: ItemStatus;
+  memberId: string;
+  memberName: string;
 }
 
 export interface Order {
   id: string;
   tableId: string;
   tableLabel: string;
+  sessionId: string;
   memberName: string;
   createdAt: number;
   items: OrderItem[];
@@ -54,6 +72,7 @@ export interface CreateOrderLine {
   productId: string;
   quantity: number;
   notes?: string;
+  memberId?: string;
 }
 
 export const ITEM_STATUSES: ItemStatus[] = [

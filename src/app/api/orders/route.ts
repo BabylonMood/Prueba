@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const result = createOrder({
     tableId: typeof body.tableId === "string" ? body.tableId : "",
-    memberName: typeof body.memberName === "string" ? body.memberName : "",
     lines: Array.isArray(body.lines) ? body.lines : [],
   });
 

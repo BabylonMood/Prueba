@@ -91,7 +91,7 @@ export function StationBoard({
                     <p className="text-xs text-zinc-500">“{item.notes}”</p>
                   ) : null}
                   <p className="text-xs text-zinc-400">
-                    {order.id} · {order.memberName}
+                    {order.id} · {item.memberName}
                   </p>
                   {col.key === "pendiente" && (
                     <button

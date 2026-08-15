@@ -98,7 +98,7 @@ export function MozoDashboard() {
                           {item.quantity} × {item.name}
                           <span className="text-xs text-zinc-500">
                             {" "}
-                            · {orderLabel}
+                            · {item.memberName} · {orderLabel}
                           </span>
                         </span>
                         <button
@@ -121,6 +121,10 @@ export function MozoDashboard() {
                       >
                         <span>
                           {i.quantity} × {i.name}
+                          <span className="text-xs text-zinc-500">
+                            {" "}
+                            · {i.memberName}
+                          </span>
                         </span>
                         <span className="text-xs text-zinc-500">
                           {ITEM_STATUS_LABELS[i.status]}
