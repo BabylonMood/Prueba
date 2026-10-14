@@ -1,8 +1,8 @@
 # Resto · Pedidos de mesa
 
-V1 del punto 25: **QR → carta → pedido → cocina/bar → mozo**.
+Sistema de pedidos por QR para restaurantes: **QR → carta → pedido → cocina/bar → mozo**.
 
-Sistema de pedidos y atención para restaurantes. El cliente escanea un QR
+El cliente escanea un QR
 (simulado por ahora desde la página de inicio), ve la carta, arma su pedido y
 lo envía. El sistema lo reparte automáticamente entre **cocina** y **bar**
 según la estación de cada producto, y el **mozo** ve qué mesas tienen productos
